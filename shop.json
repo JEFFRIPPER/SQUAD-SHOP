@@ -49,39 +49,6 @@
       "hidden": false
     },
     {
-      "id": "s1000",
-      "name": "",
-      "stars": 1000,
-      "price": 1599,
-      "desc": "",
-      "tag": "Выгодно",
-      "gold": true,
-      "image": "",
-      "hidden": false
-    },
-    {
-      "id": "s2500",
-      "name": "",
-      "stars": 2500,
-      "price": 3949,
-      "desc": "",
-      "tag": "",
-      "gold": false,
-      "image": "",
-      "hidden": false
-    },
-    {
-      "id": "prem3",
-      "name": "Telegram Premium · 3 месяца",
-      "stars": 0,
-      "price": 1249,
-      "desc": "Подарком на твой @username",
-      "tag": "",
-      "gold": false,
-      "image": "",
-      "hidden": false
-    },
-    {
       "id": "prem6",
       "name": "Telegram Premium · 6 месяцев",
       "stars": 0,
