@@ -1,0 +1,107 @@
+{
+  "settings": {
+    "receiver": "",
+    "support": ""
+  },
+  "products": [
+    {
+      "id": "s50",
+      "name": "",
+      "stars": 50,
+      "price": 85,
+      "desc": "",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "s100",
+      "name": "",
+      "stars": 100,
+      "price": 165,
+      "desc": "",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "s250",
+      "name": "",
+      "stars": 250,
+      "price": 399,
+      "desc": "",
+      "tag": "Хит",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "s500",
+      "name": "",
+      "stars": 500,
+      "price": 790,
+      "desc": "",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "s1000",
+      "name": "",
+      "stars": 1000,
+      "price": 1550,
+      "desc": "",
+      "tag": "Выгодно",
+      "gold": true,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "s2500",
+      "name": "",
+      "stars": 2500,
+      "price": 3790,
+      "desc": "",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "prem3",
+      "name": "Telegram Premium · 3 месяца",
+      "stars": 0,
+      "price": 1190,
+      "desc": "Подарком на твой @username",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "prem6",
+      "name": "Telegram Premium · 6 месяцев",
+      "stars": 0,
+      "price": 1590,
+      "desc": "Подарком на твой @username",
+      "tag": "",
+      "gold": false,
+      "image": "",
+      "hidden": false
+    },
+    {
+      "id": "prem12",
+      "name": "Telegram Premium · 12 месяцев",
+      "stars": 0,
+      "price": 2790,
+      "desc": "Подарком на твой @username",
+      "tag": "Выгодно",
+      "gold": true,
+      "image": "",
+      "hidden": false
+    }
+  ]
+}
