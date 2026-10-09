@@ -351,7 +351,7 @@ h1 {
   box-shadow: 0 0 14px var(--glow-soft);
 }
 .steps b { display: block; font-size: 16px; line-height: 24px; font-weight: 500; }
-.steps span { display: block; color: var(--text-2); }
+.steps div > span { display: block; color: var(--text-2); }
 
 /* ---- faq ------------------------------------------------------------------- */
 .faq { display: flex; flex-direction: column; gap: 8px; }
