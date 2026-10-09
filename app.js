@@ -145,8 +145,11 @@
     if (!t.other) return rub.format(t.stars) + ' ' + starsWord(t.stars);
     return t.count + ' ' + plural(t.count, 'товар', 'товара', 'товаров');
   }
+  // One line of the cart holds at most this many packs, so an order stays
+  // within what a single YooMoney payment can take.
+  var MAX_QTY = 10;
   function setQty(id, q) {
-    q = Math.max(0, Math.min(99, q));
+    q = Math.max(0, Math.min(MAX_QTY, q));
     if (q) cart[id] = q; else delete cart[id];
     save();
     renderProducts();
@@ -159,7 +162,7 @@
     return h('div', { class: 'stepper' },
       h('button', { type: 'button', class: 'ripple', 'aria-label': 'Убрать один', onclick: function () { setQty(id, q - 1); } }, icon(q > 1 ? 'remove' : 'del')),
       h('b', { 'aria-live': 'polite', text: String(q) }),
-      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', onclick: function () { setQty(id, q + 1); } }, icon('add')));
+      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', disabled: q >= MAX_QTY, onclick: function () { setQty(id, q + 1); } }, icon('add')));
   }
 
   function media(p) {
@@ -328,7 +331,9 @@
     var t = totals();
     var id = 'SQ-' + rid(6).toUpperCase();
     // The wallet's history shows the label: order, recipient and what to hand out.
-    var items = lines().map(function (l) { return (l.p.stars ? l.p.stars + '*' : l.p.id) + (l.q > 1 ? 'x' + l.q : ''); }).join(',');
+    // Stars go as one total so the label fits 64 characters with any cart.
+    var items = (t.stars ? [t.stars + '*'] : []).concat(lines().filter(function (l) { return !l.p.stars; })
+      .map(function (l) { return l.p.id + (l.q > 1 ? 'x' + l.q : ''); })).join(',');
     try { localStorage.setItem('squadshop.last', JSON.stringify({ id: id, user: user, what: totalLabel(t), sum: t.sum })); } catch (e) { /* ignore */ }
     var fields = {
       receiver: shop.settings.receiver,
@@ -776,7 +781,7 @@
     .catch(function () { toast('Не удалось загрузить товары. Обнови страницу.'); })
     .then(function () {
       loaded = true;
-      Object.keys(cart).forEach(function (id) { var p = byId(id); if (!p || p.hidden) delete cart[id]; });
+      Object.keys(cart).forEach(function (id) { var p = byId(id); if (!p || p.hidden) delete cart[id]; else if (cart[id] > MAX_QTY) cart[id] = MAX_QTY; });
       save();
       renderProducts();
       renderFaq();
