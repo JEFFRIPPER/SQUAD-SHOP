@@ -231,21 +231,16 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 16px calc(112px + env(sa
   background: var(--surface-solid);
   box-shadow: 0 18px 48px -20px rgba(220, 0, 40, 0.75);
 }
+/* The fade to the card colour is part of the cover itself: the Ken Burns zoom
+   pushes the cover ~20px past its box, and a separate overlay left that edge
+   uncovered as a bright strip behind the heading (seen on PC). */
 .banner .cover {
   height: 180px;
-  background: url("img/squad-cover.jpg") 50% 46% / cover no-repeat;
+  background:
+    linear-gradient(180deg, rgba(20, 5, 7, 0) 45%, rgba(20, 5, 7, 0.75) 76%, var(--surface-solid) 92%),
+    url("img/squad-cover.jpg") 50% 46% / cover no-repeat;
   animation: kenburns 24s ease-in-out infinite alternate;
   transform-origin: 50% 45%;
-}
-.banner::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 100px;
-  height: 82px;
-  background: linear-gradient(180deg, rgba(20, 5, 7, 0), var(--surface-solid));
-  pointer-events: none;
 }
 @keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.12) translate3d(0, 4px, 0); } }
 .banner-body { position: relative; z-index: 1; margin-top: -24px; padding: 0 20px 22px; }
@@ -339,7 +334,7 @@ h1 {
 .amount small { margin-left: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); letter-spacing: 0.25px; }
 .price { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--red); text-shadow: 0 0 14px var(--glow-soft); }
 .per { font-size: 12px; line-height: 16px; letter-spacing: 0.4px; color: var(--text-2); }
-.product .act { margin-top: 12px; }
+.product .act { margin-top: auto; padding-top: 12px; } /* buttons line up across a row */
 .product .btn-tonal { width: 100%; }
 .stepper { display: flex; align-items: center; justify-content: space-between; height: 40px; border-radius: 20px; background: linear-gradient(180deg, var(--red), var(--red-deep)); color: #fff; box-shadow: 0 0 18px var(--glow-soft); }
 .stepper button { width: 44px; height: 40px; border: 0; border-radius: 20px; background: transparent; display: grid; place-items: center; }
@@ -586,12 +581,12 @@ h1 {
   .steps li { flex-direction: column; }
   h1 { font-size: 44px; line-height: 52px; }
   .banner .cover { height: 240px; }
-  .banner::after { top: 150px; height: 92px; }
   .banner-body { padding: 0 32px 32px; }
 }
 @media (min-width: 960px) {
   .grid { grid-template-columns: repeat(4, 1fr); }
   main { padding-top: 24px; }
+  .banner .cover { height: 300px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
