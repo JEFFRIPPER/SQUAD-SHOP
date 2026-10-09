@@ -432,6 +432,7 @@
   var ADMIN_KEY = 'squadshop.admin';
   var LOGIN_RE = /^[a-z0-9_.-]{3,32}$/;
   var KDF_ITER = 600000;
+  var NO_WRITE = 'У ключа GitHub нет права записи. Открой ключ на github.com/settings/personal-access-tokens и поставь Contents: Read and write.';
   function b64(buf) { var s = '', a = new Uint8Array(buf); for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
   function unb64(str) { return Uint8Array.from(atob(str), function (c) { return c.charCodeAt(0); }); }
   function passKey(password, salt, iter) {
@@ -632,8 +633,12 @@
     var msg = h('p', { class: 'hint', hidden: true });
     function say(text, bad) { msg.textContent = text; msg.hidden = !text; msg.classList.toggle('bad', !!bad); }
     function save(list, done) {
-      return store.save({ 'admins.json': JSON.stringify({ admins: list }, null, 2) + '\n' }).then(function () { say(done); draw(list); })
-        .catch(function (e) { say('Не сохранилось (' + ((e && e.code) || 'ошибка') + '). Попробуй ещё раз.', true); });
+      return store.save({ 'admins.json': JSON.stringify({ admins: list }, null, 2) + '\n' }).then(function () { say(done); draw(list); return true; });
+    }
+    function failed(e) {
+      var code = e && e.code;
+      say(code === 'not_writer' ? NO_WRITE : 'Не сохранилось (' + (code || 'ошибка') + '). Попробуй ещё раз.', true);
+      return false;
     }
     function draw(list) {
       box.textContent = '';
@@ -646,7 +651,7 @@
             say('Удаляю…');
             repoAdmins(store.token).then(function (cur) {
               return save(cur.filter(function (x) { return x.login !== a.login; }), 'Админ ' + a.login + ' удалён. На сайте вступит в силу примерно через минуту.');
-            });
+            }).catch(failed);
           } }, icon('del')))));
       });
     }
@@ -663,7 +668,7 @@
       Promise.all([repoAdmins(store.token), sealToken(login, pass, store.token)]).then(function (r) {
         var list = r[0].filter(function (x) { return x.login !== login; }).concat([r[1]]);
         return save(list, 'Готово: ' + login + ' может входить по паролю примерно через минуту.');
-      }).then(function () { lg.value = ''; pw.value = ''; add.disabled = false; });
+      }).catch(failed).then(function (ok) { if (ok) { lg.value = ''; pw.value = ''; } add.disabled = false; });
     } }, icon('add'), 'Добавить админа');
 
     return h('div', null,
@@ -822,7 +827,8 @@
     }).catch(function (e) {
       saving = false;
       var code = e && e.code;
-      adminMsg = code === 'not_writer' || code === 'not_granted' ? 'Сохранять может только владелец сайта.'
+      adminMsg = code === 'not_writer' && store.kind === 'github' ? NO_WRITE
+        : code === 'not_writer' || code === 'not_granted' ? 'Сохранять может только владелец сайта.'
         : code === 'capability_disabled' ? 'Отсюда сохранить нельзя. Открой магазин из своего аккаунта Claude, а не по публичной ссылке.'
         : code === 'conflict' ? 'Магазин изменили в другой вкладке. Обнови страницу и внеси правку ещё раз.'
         : code === 'too_large' ? 'Слишком большая картинка. Выбери другую.'
