@@ -331,6 +331,7 @@ h1 {
 .product .btn-tonal { width: 100%; }
 .stepper { display: flex; align-items: center; justify-content: space-between; height: 40px; border-radius: 20px; background: linear-gradient(180deg, var(--red), var(--red-deep)); color: #fff; box-shadow: 0 0 18px var(--glow-soft); }
 .stepper button { width: 44px; height: 40px; border: 0; border-radius: 20px; background: transparent; display: grid; place-items: center; }
+.stepper button:disabled { opacity: 0.38; }
 .stepper .icon { width: 20px; height: 20px; }
 .stepper b { font-size: 16px; font-variant-numeric: tabular-nums; }
 
@@ -351,7 +352,7 @@ h1 {
   box-shadow: 0 0 14px var(--glow-soft);
 }
 .steps b { display: block; font-size: 16px; line-height: 24px; font-weight: 500; }
-.steps span { display: block; color: var(--text-2); }
+.steps div > span { display: block; color: var(--text-2); }
 
 /* ---- faq ------------------------------------------------------------------- */
 .faq { display: flex; flex-direction: column; gap: 8px; }
