@@ -94,7 +94,7 @@
     if (!data || typeof data !== 'object') return out;
     var s = data.settings || {};
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
-    out.settings.support = String(s.support || '').replace(/^@+/, '');
+    out.settings.support = cleanUser(s.support);
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -145,8 +145,11 @@
     if (!t.other) return rub.format(t.stars) + ' ' + starsWord(t.stars);
     return t.count + ' ' + plural(t.count, 'товар', 'товара', 'товаров');
   }
+  // One line of the cart holds at most this many packs, so an order stays
+  // within what a single YooMoney payment can take.
+  var MAX_QTY = 10;
   function setQty(id, q) {
-    q = Math.max(0, Math.min(99, q));
+    q = Math.max(0, Math.min(MAX_QTY, q));
     if (q) cart[id] = q; else delete cart[id];
     save();
     renderProducts();
@@ -159,7 +162,7 @@
     return h('div', { class: 'stepper' },
       h('button', { type: 'button', class: 'ripple', 'aria-label': 'Убрать один', onclick: function () { setQty(id, q - 1); } }, icon(q > 1 ? 'remove' : 'del')),
       h('b', { 'aria-live': 'polite', text: String(q) }),
-      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', onclick: function () { setQty(id, q + 1); } }, icon('add')));
+      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', disabled: q >= MAX_QTY, onclick: function () { setQty(id, q + 1); } }, icon('add')));
   }
 
   function media(p) {
@@ -209,7 +212,9 @@
       root.appendChild(qa);
     });
     if (shop.settings.support) {
-      root.appendChild(h('a', { class: 'btn-tonal ripple support', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support }));
+      // support is a username, optionally with a link suffix: THKC_SQUAD?direct
+      // opens the channel's direct messages.
+      root.appendChild(h('a', { class: 'btn-tonal ripple support', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support.split('?')[0] }));
     }
   }
 
@@ -228,7 +233,7 @@
   // ---- sheet -----------------------------------------------------------------
   var mode = 'cart';
   var USER_RE = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
-  function cleanUser(v) { return String(v || '').trim().replace(/^https?:\/\/t\.me\//i, '').replace(/^@+/, ''); }
+  function cleanUser(v) { return String(v || '').trim().replace(/^(https?:\/\/)?t\.me\//i, '').replace(/^@+/, ''); }
 
   function field(id, label, control, hint) {
     return h('div', { class: 'field' }, h('label', { for: id, text: label }), control, hint || null);
@@ -328,7 +333,9 @@
     var t = totals();
     var id = 'SQ-' + rid(6).toUpperCase();
     // The wallet's history shows the label: order, recipient and what to hand out.
-    var items = lines().map(function (l) { return (l.p.stars ? l.p.stars + '*' : l.p.id) + (l.q > 1 ? 'x' + l.q : ''); }).join(',');
+    // Stars go as one total so the label fits 64 characters with any cart.
+    var items = (t.stars ? [t.stars + '*'] : []).concat(lines().filter(function (l) { return !l.p.stars; })
+      .map(function (l) { return l.p.id + (l.q > 1 ? 'x' + l.q : ''); })).join(',');
     try { localStorage.setItem('squadshop.last', JSON.stringify({ id: id, user: user, what: totalLabel(t), sum: t.sum })); } catch (e) { /* ignore */ }
     var fields = {
       receiver: shop.settings.receiver,
@@ -518,7 +525,7 @@
     body.appendChild(field('setReceiver', 'Номер кошелька ЮMoney', h('div', { class: 'input' }, wallet),
       h('p', { class: 'hint', text: 'Пока пусто, кнопка «Оплатить» не работает' })));
     body.appendChild(field('setSupport', 'Поддержка в Telegram', h('div', { class: 'input' }, h('span', { text: '@' }), sup),
-      h('p', { class: 'hint', text: 'Появится кнопкой под вопросами' })));
+      h('p', { class: 'hint', text: 'Появится кнопкой под вопросами. Для лички канала: канал?direct' })));
     if (store.kind === 'github') {
       body.appendChild(h('button', { type: 'button', class: 'text-btn ripple logout', onclick: function () {
         try { localStorage.removeItem(GH_KEY); } catch (e) { /* ignore */ }
@@ -776,7 +783,7 @@
     .catch(function () { toast('Не удалось загрузить товары. Обнови страницу.'); })
     .then(function () {
       loaded = true;
-      Object.keys(cart).forEach(function (id) { var p = byId(id); if (!p || p.hidden) delete cart[id]; });
+      Object.keys(cart).forEach(function (id) { var p = byId(id); if (!p || p.hidden) delete cart[id]; else if (cart[id] > MAX_QTY) cart[id] = MAX_QTY; });
       save();
       renderProducts();
       renderFaq();
