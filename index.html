@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070203">
+  <meta name="description" content="SQUAD SHOP: звёзды Telegram за рубли. Оплата картой или ЮMoney.">
+  <title>SQUAD SHOP</title>
+  <link rel="icon" href="img/squad-logo.jpg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="style.css?v=2">
+</head>
+<body>
+  <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="SQUAD SHOP, наверх">
+        <span class="logo-ring"><img class="logo" src="img/squad-logo.jpg" alt=""></span>
+        <b>SQUAD <em>SHOP</em></b>
+      </a>
+      <div class="top-actions">
+      <button class="admin-btn ripple" id="adminBtn" type="button" hidden>
+        <svg class="icon" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a.996.996 0 0 0 0-1.41l-2.34-2.34a.996.996 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span>Товары</span><i class="dot-dirty" id="dirtyDot" hidden></i>
+      </button>
+      <button class="icon-btn ripple" id="cartBtn" type="button" aria-label="Корзина">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49A1.003 1.003 0 0 0 20 4H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        <span class="badge" id="cartBadge" hidden>0</span>
+      </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="banner enter">
+      <div class="cover" aria-hidden="true"></div>
+      <div class="banner-body">
+        <p class="eyebrow">T.N.K.C SQUAD</p>
+        <h1>Звёзды Telegram <em>за рубли</em></h1>
+        <p class="lead-text">Покупаешь здесь, звёзды приходят на твой Telegram-аккаунт или другу в подарок. Входить в аккаунт и давать пароли не нужно.</p>
+        <div class="chips">
+          <span class="chip"><svg class="icon" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>Картой или ЮMoney</span>
+          <span class="chip"><svg class="icon" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>Нужен только @username</span>
+          <span class="chip"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6h-2.18c.11-.31.18-.65.18-1 0-1.66-1.34-3-3-3-1.05 0-1.96.54-2.5 1.35l-.5.67-.5-.68C10.96 2.54 10.05 2 9 2 7.34 2 6 3.34 6 5c0 .35.07.69.18 1H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-5-2c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM9 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm11 15H4v-2h16v2zm0-5H4V8h5.08L7 10.83 8.62 12 11 8.76l1-1.36 1 1.36L15.38 12 17 10.83 14.92 8H20v6z"/></svg>Можно подарить</span>
+        </div>
+        <a class="btn-filled ripple" href="#catalog">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          Выбрать звёзды
+        </a>
+      </div>
+    </section>
+
+    <section class="group" id="catalog">
+      <h2 class="group-title">Товары</h2>
+      <div class="grid" id="products"></div>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Как это работает</h2>
+      <ol class="steps">
+        <li class="card enter" style="--i:0"><span class="num">1</span><div><b>Выбираешь пакет</b><span>Кладёшь звёзды в корзину, можно несколько пакетов сразу.</span></div></li>
+        <li class="card enter" style="--i:1"><span class="num">2</span><div><b>Указываешь @username</b><span>Свой или друга, если это подарок. Больше ничего не нужно.</span></div></li>
+        <li class="card enter" style="--i:2"><span class="num">3</span><div><b>Платишь и получаешь</b><span>Оплата картой или из кошелька на странице ЮMoney. Звёзды приходят после проверки оплаты.</span></div></li>
+      </ol>
+    </section>
+
+    <section class="group">
+      <h2 class="group-title">Вопросы</h2>
+      <div class="faq" id="faq"></div>
+    </section>
+
+    <footer class="foot">
+      <span class="logo-ring small"><img class="logo" src="img/squad-logo.jpg" alt=""></span>
+      <p>T.N.K.C SQUAD · Свобода начинается с нас</p>
+      <p class="fine">Оплата проходит на стороне ЮMoney, данные карты сайт не видит и не хранит.</p>
+    </footer>
+  </main>
+
+  <div class="cart-bar" id="cartBar" hidden>
+    <button class="cart-bar-btn ripple press" type="button" id="cartBarBtn">
+      <span class="cart-bar-count" id="cartBarCount">0</span>
+      <span class="cart-bar-text">Корзина</span>
+      <b id="cartBarSum">0 ₽</b>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/></svg>
+    </button>
+  </div>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <div class="handle" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="sheetTitle">Корзина</h2>
+      <button class="icon-btn ripple" type="button" data-close aria-label="Закрыть">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </section>
+
+  <div class="dialog-wrap" id="done" hidden>
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="doneTitle">
+      <div class="done-mark"><svg class="icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
+      <h2 id="doneTitle">Оплата отправлена</h2>
+      <p id="doneText"></p>
+      <button class="btn-filled ripple" type="button" data-close-done>Понятно</button>
+    </div>
+  </div>
+
+  <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
+
+  <script src="app.js?v=2"></script>
+</body>
+</html>
