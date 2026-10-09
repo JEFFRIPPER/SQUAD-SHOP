@@ -94,7 +94,7 @@
     if (!data || typeof data !== 'object') return out;
     var s = data.settings || {};
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
-    out.settings.support = String(s.support || '').replace(/^@+/, '');
+    out.settings.support = cleanUser(s.support);
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -212,7 +212,9 @@
       root.appendChild(qa);
     });
     if (shop.settings.support) {
-      root.appendChild(h('a', { class: 'btn-tonal ripple support', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support }));
+      // support is a username, optionally with a link suffix: THKC_SQUAD?direct
+      // opens the channel's direct messages.
+      root.appendChild(h('a', { class: 'btn-tonal ripple support', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support.split('?')[0] }));
     }
   }
 
@@ -231,7 +233,7 @@
   // ---- sheet -----------------------------------------------------------------
   var mode = 'cart';
   var USER_RE = /^[A-Za-z][A-Za-z0-9_]{4,31}$/;
-  function cleanUser(v) { return String(v || '').trim().replace(/^https?:\/\/t\.me\//i, '').replace(/^@+/, ''); }
+  function cleanUser(v) { return String(v || '').trim().replace(/^(https?:\/\/)?t\.me\//i, '').replace(/^@+/, ''); }
 
   function field(id, label, control, hint) {
     return h('div', { class: 'field' }, h('label', { for: id, text: label }), control, hint || null);
@@ -523,7 +525,7 @@
     body.appendChild(field('setReceiver', 'Номер кошелька ЮMoney', h('div', { class: 'input' }, wallet),
       h('p', { class: 'hint', text: 'Пока пусто, кнопка «Оплатить» не работает' })));
     body.appendChild(field('setSupport', 'Поддержка в Telegram', h('div', { class: 'input' }, h('span', { text: '@' }), sup),
-      h('p', { class: 'hint', text: 'Появится кнопкой под вопросами' })));
+      h('p', { class: 'hint', text: 'Появится кнопкой под вопросами. Для лички канала: канал?direct' })));
     if (store.kind === 'github') {
       body.appendChild(h('button', { type: 'button', class: 'text-btn ripple logout', onclick: function () {
         try { localStorage.removeItem(GH_KEY); } catch (e) { /* ignore */ }
