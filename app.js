@@ -646,7 +646,7 @@
       list.forEach(function (a) {
         box.appendChild(h('div', { class: 'arow' },
           h('span', { class: 'lead' }, icon('lock')),
-          h('div', { class: 'body' }, h('b', { text: a.login }), h('span', { text: a.login === me ? 'это ты' : 'вход по паролю' })),
+          h('div', { class: 'body' }, h('b', { text: a.login }), h('span', { text: (a.login === me ? 'это ты' : 'вход по паролю') + (a.added ? ' · с ' + new Date(a.added).toLocaleDateString('ru-RU') : '') })),
           h('div', { class: 'arow-acts' }, h('button', { type: 'button', class: 'mini ripple', 'aria-label': 'Удалить ' + a.login, disabled: a.login === me, onclick: function () {
             say('Удаляю…');
             repoAdmins(store.token).then(function (cur) {
@@ -666,7 +666,13 @@
       add.disabled = true;
       say('Сохраняю…');
       Promise.all([repoAdmins(store.token), sealToken(login, pass, store.token)]).then(function (r) {
-        var list = r[0].filter(function (x) { return x.login !== login; }).concat([r[1]]);
+        // When and by whom: shown here and in Finya's Mini App.
+        var old = r[0].filter(function (x) { return x.login === login; })[0];
+        var entry = r[1], now = new Date().toISOString();
+        entry.added = (old && old.added) || now;
+        entry.by = old ? old.by || '' : me || 'владелец';
+        if (old) entry.changed = now;
+        var list = r[0].filter(function (x) { return x.login !== login; }).concat([entry]);
         return save(list, 'Готово: ' + login + ' может входить по паролю примерно через минуту.');
       }).catch(failed).then(function (ok) { if (ok) { lg.value = ''; pw.value = ''; } add.disabled = false; });
     } }, icon('add'), 'Добавить админа');
