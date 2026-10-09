@@ -1,0 +1,11 @@
+{
+  "admins": [
+    {
+      "login": "thkc_squad_creator",
+      "iter": 600000,
+      "salt": "8CjnExB6Cz9PltDVdjOf0A==",
+      "iv": "PMNIQ5AxWZW+IilE",
+      "data": "WrzGS6pb5e5UhLTLwaBeTOioKS2vagpL9d7HCO9OT5uMo6OUrGoGfwaOJiDJS4rCqIE7F0ve3JeEtXyDOeeJB0O8vihuLedbIrBQrqtl354m2o3miEIBaLO9Rg/z9lvji2SanEd/XJu6cr0Ihw=="
+    }
+  ]
+}
