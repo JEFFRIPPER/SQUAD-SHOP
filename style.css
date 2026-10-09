@@ -111,10 +111,20 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
 
 .enter { opacity: 0; animation: rise var(--dur-long) var(--ease-emph-decel) forwards; animation-delay: calc(var(--i, 0) * 45ms); }
 @keyframes rise { from { opacity: 0; transform: translate3d(0, 24px, 0); } to { opacity: 1; transform: none; } }
-@keyframes halo {
-  0%, 100% { box-shadow: 0 0 10px var(--glow-soft), 0 0 0 0 rgba(255, 30, 60, 0); }
-  50% { box-shadow: 0 0 22px var(--glow), 0 0 0 4px rgba(255, 30, 60, 0.12); }
+/* The halo pulses by opacity of a fixed glow: animating box-shadow itself
+   repaints on every frame. */
+.logo-ring, .done-mark { position: relative; }
+.logo-ring::after, .done-mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 22px var(--glow), 0 0 0 4px rgba(255, 30, 60, 0.12);
+  opacity: 0.35;
+  pointer-events: none;
+  animation: halo 3.2s ease-in-out infinite;
 }
+@keyframes halo { 50% { opacity: 1; } }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
 /* ---- buttons --------------------------------------------------------------- */
@@ -191,9 +201,9 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 20;
-  background: linear-gradient(180deg, rgba(7, 2, 3, 0.94), rgba(7, 2, 3, 0.78));
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
+  /* No backdrop blur: behind the bar the background moves all the time, so the
+     blur was recomputed every frame and the page lagged on phones. */
+  background: linear-gradient(180deg, rgba(7, 2, 3, 0.97), rgba(7, 2, 3, 0.9));
   border-bottom: 1px solid var(--line);
 }
 .topbar-inner { max-width: 1080px; margin: 0 auto; height: 64px; padding: 0 12px 0 16px; display: flex; align-items: center; justify-content: space-between; }
@@ -207,7 +217,6 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   border-radius: 50%;
   padding: 2px;
   background: conic-gradient(from 0deg, var(--red), #4a0010, var(--red), #4a0010, var(--red));
-  animation: halo 3.2s ease-in-out infinite;
 }
 .logo { display: block; width: 100%; height: 100%; border-radius: 50%; border: 2px solid var(--surface-solid); object-fit: cover; }
 
@@ -317,7 +326,10 @@ h1 {
 }
 .tag.gold { background: linear-gradient(180deg, #ffe08a, #e0a526); color: #3d2e00; box-shadow: 0 0 12px rgba(255, 207, 90, 0.4); }
 .stars { position: relative; height: 64px; margin-bottom: 6px; }
-.stars .icon { position: absolute; fill: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 207, 90, 0.7)); animation: twinkle 3.6s ease-in-out infinite; }
+.stars .icon { position: absolute; fill: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 207, 90, 0.7)); animation: twinkle 3.6s ease-in-out infinite; animation-play-state: paused; }
+/* Stars twinkle only on cards on screen (app.js marks them .live): dozens of
+   animated icons at once made the page lag on phones. */
+.product.live .stars .icon { animation-play-state: running; }
 .stars .icon:nth-child(1) { width: 52px; height: 52px; left: 0; top: 8px; }
 .stars .icon:nth-child(2) { width: 30px; height: 30px; left: 44px; top: 0; animation-delay: -1.2s; }
 .stars .icon:nth-child(3) { width: 22px; height: 22px; left: 46px; top: 38px; animation-delay: -2.4s; }
@@ -540,7 +552,7 @@ h1 {
   animation: pop-in var(--dur-long) var(--ease-emph-decel);
 }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.85); } }
-.done-mark { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, var(--red), var(--red-deep)); animation: halo 3.2s ease-in-out infinite; }
+.done-mark { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, var(--red), var(--red-deep)); }
 .done-mark .icon { width: 34px; height: 34px; fill: #fff; }
 .dialog h2 { margin: 0 0 8px; font-size: 22px; line-height: 28px; font-weight: 500; }
 .dialog p { margin: 0 0 20px; color: var(--text-2); }
