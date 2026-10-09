@@ -425,9 +425,60 @@
       fr.readAsDataURL(content);
     });
   }
+  // ---- admin logins ------------------------------------------------------------
+  // admins.json holds one entry per admin: the shop's GitHub key encrypted with
+  // that admin's password (PBKDF2 + AES-GCM). Without the password the file is
+  // useless, so it can stay public next to the page.
+  var ADMIN_KEY = 'squadshop.admin';
+  var LOGIN_RE = /^[a-z0-9_.-]{3,32}$/;
+  var KDF_ITER = 600000;
+  function b64(buf) { var s = '', a = new Uint8Array(buf); for (var i = 0; i < a.length; i++) s += String.fromCharCode(a[i]); return btoa(s); }
+  function unb64(str) { return Uint8Array.from(atob(str), function (c) { return c.charCodeAt(0); }); }
+  function passKey(password, salt, iter) {
+    return crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']).then(function (k) {
+      return crypto.subtle.deriveKey({ name: 'PBKDF2', salt: salt, iterations: iter, hash: 'SHA-256' }, k, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+    });
+  }
+  function sealToken(login, password, token) {
+    var salt = crypto.getRandomValues(new Uint8Array(16));
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    return passKey(password, salt, KDF_ITER).then(function (k) {
+      return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, new TextEncoder().encode(token));
+    }).then(function (data) {
+      return { login: login, iter: KDF_ITER, salt: b64(salt), iv: b64(iv), data: b64(data) };
+    });
+  }
+  function openToken(entry, password) {
+    return passKey(password, unb64(entry.salt), entry.iter || KDF_ITER).then(function (k) {
+      return crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(entry.iv) }, k, unb64(entry.data));
+    }).then(function (buf) { return new TextDecoder().decode(buf); });
+  }
+  function readAdmins(data) { return data && Array.isArray(data.admins) ? data.admins.filter(function (a) { return a && a.login && a.data; }) : []; }
+  // On the site: the published file. With a key: the repository, always fresh.
+  function siteAdmins() {
+    return fetch('admins.json?t=' + Date.now(), { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; }).then(readAdmins).catch(function () { return []; });
+  }
+  function repoAdmins(token) {
+    return gh('GET', '/contents/admins.json?ref=' + GH.branch, token).then(function (f) {
+      return f ? readAdmins(JSON.parse(decodeURIComponent(escape(atob(f.content.replace(/\s/g, '')))))) : [];
+    });
+  }
+  function signIn(token, login) {
+    try { localStorage.setItem(GH_KEY, token); if (login) localStorage.setItem(ADMIN_KEY, login); else localStorage.removeItem(ADMIN_KEY); } catch (e) { /* key lives for this visit only */ }
+    store = githubStore(token);
+    renderAdmin();
+  }
+  function checkToken(t) {
+    return gh('GET', '', t).then(function (repo) {
+      if (!repo || !repo.permissions || !repo.permissions.push) throw new Error('no push');
+    });
+  }
+
   function githubStore(token) {
     return {
       kind: 'github',
+      token: token,
       save: function (files) {
         // One commit per file, shop.json last so it never points at a missing photo.
         var paths = Object.keys(files).sort(function (a, b) { return (a === 'shop.json') - (b === 'shop.json'); });
@@ -440,7 +491,7 @@
                 return sha ? gh('DELETE', url, token, { message: 'SQUAD SHOP: убран ' + path, sha: sha, branch: GH.branch }) : null;
               }
               return toBase64(files[path]).then(function (b64) {
-                var body = { message: 'SQUAD SHOP: ' + (path === 'shop.json' ? 'товары' : 'фото ' + path), content: b64, branch: GH.branch };
+                var body = { message: 'SQUAD SHOP: ' + (path === 'shop.json' ? 'товары' : path === 'admins.json' ? 'админы' : 'фото ' + path), content: b64, branch: GH.branch };
                 if (sha) body.sha = sha;
                 return gh('PUT', url, token, body);
               });
@@ -451,33 +502,61 @@
     };
   }
 
+  var loginMode = 'password';
   function renderLogin() {
-    $('sheetTitle').textContent = 'Вход для владельца';
+    $('sheetTitle').textContent = 'Вход для админа';
     var body = $('sheetBody');
+    var err = h('p', { class: 'hint bad', hidden: true });
+    function fail(msg) { err.textContent = msg; err.hidden = false; btn.disabled = false; }
+    var btn;
+
+    if (loginMode === 'password') {
+      var lg = h('input', { id: 'admLogin', type: 'text', autocomplete: 'username', autocapitalize: 'off', spellcheck: 'false', placeholder: 'логин', maxlength: '32' });
+      var pw = h('input', { id: 'admPass', type: 'password', autocomplete: 'current-password', placeholder: 'пароль' });
+      body.appendChild(h('p', { class: 'login-text', text: 'Управлять товарами могут только админы магазина.' }));
+      body.appendChild(field('admLogin', 'Логин', h('div', { class: 'input' }, lg)));
+      body.appendChild(field('admPass', 'Пароль', h('div', { class: 'input' }, pw)));
+      body.appendChild(err);
+      btn = h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () {
+        var login = lg.value.trim().toLowerCase(), pass = pw.value;
+        if (!login || !pass) return fail('Введи логин и пароль');
+        btn.disabled = true;
+        btn.lastChild.nodeValue = 'Проверяю…';
+        var token;
+        siteAdmins().then(function (list) {
+          var entry = list.filter(function (a) { return a.login === login; })[0];
+          if (!entry) throw new Error('bad');
+          return openToken(entry, pass);
+        }).then(function (t) { token = t; return checkToken(t); })
+          .then(function () { signIn(token, login); })
+          .catch(function (e) {
+            btn.lastChild.nodeValue = 'Войти';
+            fail(token ? 'Пароль верный, но ключ GitHub больше не работает. Войди ключом и пересоздай админов.' : 'Неверный логин или пароль');
+          });
+      } }, icon('lock'), 'Войти');
+      pw.addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
+      body.appendChild(btn);
+      body.appendChild(h('button', { type: 'button', class: 'text-btn ripple', onclick: function () { loginMode = 'key'; renderAdmin(); } }, icon('edit'), 'Войти ключом GitHub'));
+      return;
+    }
+
     var inp = h('input', { id: 'ghToken', type: 'password', autocomplete: 'off', placeholder: 'github_pat_…' });
     var hint = h('p', { class: 'hint' });
     hint.append('Создай ключ на ', h('a', { href: 'https://github.com/settings/personal-access-tokens/new', target: '_blank', rel: 'noopener', class: 'link-inline', text: 'странице GitHub' }),
       ': доступ только к репозиторию ' + GH.repo + ', право Contents: Read and write. Ключ хранится только в этом браузере.');
-    body.appendChild(h('p', { class: 'login-text', text: 'Управлять товарами может только владелец магазина. Войди ключом GitHub один раз на этом устройстве.' }));
+    body.appendChild(h('p', { class: 'login-text', text: 'Вход для владельца. После входа заведи админам логины и пароли в разделе «Админы».' }));
     body.appendChild(field('ghToken', 'Ключ GitHub', h('div', { class: 'input' }, inp), hint));
-    var err = h('p', { class: 'hint bad', hidden: true });
     body.appendChild(err);
-    var btn = h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () {
+    btn = h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () {
       var t = inp.value.trim();
-      if (!t) { err.textContent = 'Вставь ключ'; err.hidden = false; return; }
+      if (!t) return fail('Вставь ключ');
       btn.disabled = true;
-      gh('GET', '', t).then(function (repo) {
-        if (!repo || !repo.permissions || !repo.permissions.push) throw new Error('no push');
-        try { localStorage.setItem(GH_KEY, t); } catch (e) { /* key lives for this visit only */ }
-        store = githubStore(t);
-        renderAdmin();
-      }).catch(function () {
-        btn.disabled = false;
-        err.textContent = 'Ключ не подошёл: проверь, что у него есть доступ к ' + GH.repo + ' с правом записи.';
-        err.hidden = false;
+      checkToken(t).then(function () { signIn(t, ''); }).catch(function () {
+        fail('Ключ не подошёл: проверь, что у него есть доступ к ' + GH.repo + ' с правом записи.');
       });
     } }, icon('lock'), 'Войти');
     body.appendChild(btn);
+    body.appendChild(h('button', { type: 'button', class: 'text-btn ripple', onclick: function () { loginMode = 'password'; renderAdmin(); } }, icon('back'), 'Войти по логину и паролю'));
   }
   function renderAdmin() {
     var body = $('sheetBody');
@@ -534,15 +613,68 @@
     body.appendChild(field('setSupport', 'Поддержка в Telegram', h('div', { class: 'input' }, h('span', { text: '@' }), sup),
       h('p', { class: 'hint', text: 'Появится кнопкой под вопросами. Для лички канала: канал?direct' })));
     if (store.kind === 'github') {
+      body.appendChild(adminsSection());
       body.appendChild(h('button', { type: 'button', class: 'text-btn ripple logout', onclick: function () {
-        try { localStorage.removeItem(GH_KEY); } catch (e) { /* ignore */ }
+        try { localStorage.removeItem(GH_KEY); localStorage.removeItem(ADMIN_KEY); } catch (e) { /* ignore */ }
         store = null;
+        loginMode = 'password';
         draft = null;
         renderAdmin();
       } }, icon('lock'), 'Выйти на этом устройстве'));
     }
     body.appendChild(saveBar());
   }
+  // Admin logins are saved right away, apart from the shop's draft.
+  function adminsSection() {
+    var me = '';
+    try { me = localStorage.getItem(ADMIN_KEY) || ''; } catch (e) { /* ignore */ }
+    var box = h('div', { class: 'admins' }, h('p', { class: 'hint', text: 'Загружаю…' }));
+    var msg = h('p', { class: 'hint', hidden: true });
+    function say(text, bad) { msg.textContent = text; msg.hidden = !text; msg.classList.toggle('bad', !!bad); }
+    function save(list, done) {
+      return store.save({ 'admins.json': JSON.stringify({ admins: list }, null, 2) + '\n' }).then(function () { say(done); draw(list); })
+        .catch(function (e) { say('Не сохранилось (' + ((e && e.code) || 'ошибка') + '). Попробуй ещё раз.', true); });
+    }
+    function draw(list) {
+      box.textContent = '';
+      if (!list.length) box.appendChild(h('p', { class: 'hint', text: 'Админов нет. Пока входить можно только ключом GitHub.' }));
+      list.forEach(function (a) {
+        box.appendChild(h('div', { class: 'arow' },
+          h('span', { class: 'lead' }, icon('lock')),
+          h('div', { class: 'body' }, h('b', { text: a.login }), h('span', { text: a.login === me ? 'это ты' : 'вход по паролю' })),
+          h('div', { class: 'arow-acts' }, h('button', { type: 'button', class: 'mini ripple', 'aria-label': 'Удалить ' + a.login, disabled: a.login === me, onclick: function () {
+            say('Удаляю…');
+            repoAdmins(store.token).then(function (cur) {
+              return save(cur.filter(function (x) { return x.login !== a.login; }), 'Админ ' + a.login + ' удалён. На сайте вступит в силу примерно через минуту.');
+            });
+          } }, icon('del')))));
+      });
+    }
+    repoAdmins(store.token).then(draw).catch(function () { box.textContent = ''; say('Не удалось загрузить список админов.', true); });
+
+    var lg = h('input', { id: 'newLogin', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'логин', maxlength: '32' });
+    var pw = h('input', { id: 'newPass', type: 'password', autocomplete: 'new-password', placeholder: 'не короче 10 символов' });
+    var add = h('button', { type: 'button', class: 'btn-tonal ripple', onclick: function () {
+      var login = lg.value.trim().toLowerCase(), pass = pw.value;
+      if (!LOGIN_RE.test(login)) return say('Логин: от 3 до 32 символов, латиница, цифры, точка, _ и -', true);
+      if (pass.length < 10) return say('Пароль нужен не короче 10 символов', true);
+      add.disabled = true;
+      say('Сохраняю…');
+      Promise.all([repoAdmins(store.token), sealToken(login, pass, store.token)]).then(function (r) {
+        var list = r[0].filter(function (x) { return x.login !== login; }).concat([r[1]]);
+        return save(list, 'Готово: ' + login + ' может входить по паролю примерно через минуту.');
+      }).then(function () { lg.value = ''; pw.value = ''; add.disabled = false; });
+    } }, icon('add'), 'Добавить админа');
+
+    return h('div', null,
+      h('h3', { class: 'admin-sub', text: 'Админы' }),
+      box,
+      field('newLogin', 'Новый админ', h('div', { class: 'input' }, lg)),
+      field('newPass', 'Пароль для него', h('div', { class: 'input' }, pw),
+        h('p', { class: 'hint', text: 'Если админ с таким логином уже есть, пароль заменится. Пароль нигде не хранится, восстановить его нельзя.' })),
+      add, msg);
+  }
+
   function refreshSave() {
     var bar = $('sheetBody').querySelector('.save-bar');
     if (bar) bar.replaceWith(saveBar());
