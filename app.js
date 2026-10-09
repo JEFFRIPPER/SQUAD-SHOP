@@ -171,9 +171,15 @@
     return h('div', { class: 'stars' + (p.stars ? '' : ' gifts'), 'aria-hidden': 'true' }, icon(name), icon('star'), icon('star'), icon('star'));
   }
 
+  // Cards on screen get .live, which runs their star animation.
+  var liveObs = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
+    es.forEach(function (e) { e.target.classList.toggle('live', e.isIntersecting); });
+  }) : null;
+
   var firstRender = true;
   function renderProducts() {
     var root = $('products');
+    if (liveObs) liveObs.disconnect();
     root.textContent = '';
     var list = visible();
     if (!list.length) {
@@ -195,6 +201,7 @@
         h('div', { class: 'act' }, q ? stepper(p.id, q) :
           h('button', { type: 'button', class: 'btn-tonal ripple', onclick: function () { setQty(p.id, 1); toast(title(p) + ': в корзине'); } }, icon('add'), 'В корзину'))));
     });
+    Array.prototype.forEach.call(root.children, function (el) { if (liveObs) liveObs.observe(el); else el.classList.add('live'); });
     firstRender = false;
   }
 
