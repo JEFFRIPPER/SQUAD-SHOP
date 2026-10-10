@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070203">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Подключение ЮMoney</title>
+  <style>
+    :root { --bg: #070203; --surface: #140507; --line: rgba(255, 30, 60, 0.28); --red: #ff2240; --text: #f8e9ea; --text-2: rgba(248, 233, 234, 0.68); }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; background: radial-gradient(120% 60% at 50% -12%, rgba(150, 0, 24, 0.62), transparent 62%), var(--bg); color: var(--text); font: 16px/24px Roboto, system-ui, sans-serif; }
+    main { width: 100%; max-width: 440px; padding: 24px 20px; border: 1px solid var(--line); border-radius: 28px; background: var(--surface); text-align: center; box-shadow: 0 18px 48px -20px rgba(220, 0, 40, 0.75); }
+    h1 { margin: 0 0 8px; font-size: 22px; line-height: 28px; font-weight: 500; }
+    p { margin: 8px 0; color: var(--text-2); }
+    code { display: block; margin: 16px 0 8px; padding: 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.4); color: var(--text); font: 13px/18px ui-monospace, monospace; word-break: break-all; user-select: all; }
+    .btn { display: flex; align-items: center; justify-content: center; width: 100%; height: 48px; margin-top: 12px; border: 0; border-radius: 24px; background: linear-gradient(180deg, var(--red), #b0001c); color: #fff; font: 500 16px Roboto, system-ui, sans-serif; text-decoration: none; cursor: pointer; }
+    .btn.tonal { background: rgba(255, 30, 60, 0.14); border: 1px solid var(--line); color: var(--text); }
+    .timer { color: var(--red); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <main id="box"><h1>Подключение ЮMoney</h1><p>Открываю ЮMoney…</p></main>
+  <script>
+  // Step 1 (link from /ym): send the browser to YooMoney's consent page.
+  // Step 2 (YooMoney returns here with ?code=): the code lives under a minute,
+  // so the page hands over a ready "/ymcode <code>" command for Финя.
+  (function () {
+    var box = document.getElementById('box');
+    var q = new URLSearchParams(location.search);
+    var cid = q.get('cid');
+    var bot = q.get('bot');
+    function show(title, text, extra) {
+      box.textContent = '';
+      var h = document.createElement('h1'); h.textContent = title; box.appendChild(h);
+      var p = document.createElement('p'); p.textContent = text; box.appendChild(p);
+      (extra || []).forEach(function (el) { box.appendChild(el); });
+    }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text) e.textContent = text; return e; }
+
+    if (q.get('error')) {
+      show('Доступ не выдан', q.get('error') === 'access_denied'
+        ? 'Ты отказался в ЮMoney. Чтобы подключить заказы, отправь Фине /ym ещё раз.'
+        : 'ЮMoney вернул ошибку: ' + q.get('error') + '. Отправь Фине /ym ещё раз.');
+      return;
+    }
+    var code = q.get('code');
+    if (code) {
+      history.replaceState(null, '', location.pathname);
+      var cmd = '/ymcode ' + code;
+      var left = 55;
+      var timer = el('span', 'timer', left + ' с');
+      var hint = el('p'); hint.append('Скопируй и отправь Фине, пока код жив: ', timer);
+      var copy = el('button', 'btn', 'Скопировать команду');
+      copy.onclick = function () {
+        (navigator.clipboard ? navigator.clipboard.writeText(cmd) : Promise.reject()).then(function () {
+          copy.textContent = 'Скопировано';
+        }, function () { copy.textContent = 'Выдели текст выше и скопируй'; });
+      };
+      var open = el('a', 'btn tonal', 'Открыть Финю');
+      open.href = bot ? 'https://t.me/' + encodeURIComponent(bot) : 'tg://';
+      show('Почти готово', 'ЮMoney выдал одноразовый код.', [el('code', '', cmd), hint, copy, open]);
+      var t = setInterval(function () {
+        left -= 1;
+        timer.textContent = left > 0 ? left + ' с' : 'время вышло, начни с /ym заново';
+        if (left <= 0) clearInterval(t);
+      }, 1000);
+      return;
+    }
+    if (!cid) {
+      show('Нет данных', 'Открой эту страницу кнопкой из сообщения Фини после команды /ym.');
+      return;
+    }
+    // YooMoney asks for a POST form opened in the browser.
+    var form = el('form');
+    form.method = 'POST';
+    form.action = 'https://yoomoney.ru/oauth/authorize';
+    var fields = { client_id: cid, response_type: 'code', redirect_uri: location.href, scope: 'operation-history' };
+    Object.keys(fields).forEach(function (k) {
+      var i = el('input'); i.type = 'hidden'; i.name = k; i.value = fields[k]; form.appendChild(i);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  })();
+  </script>
+</body>
+</html>
