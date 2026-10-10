@@ -445,6 +445,9 @@
   function gh(method, path, token, body) {
     return fetch('https://api.github.com/repos/' + GH.owner + '/' + GH.repo + path, {
       method: method,
+      // GitHub lets the browser cache reads for a minute; a stale file sha
+      // would make the next save within that minute fail with a conflict.
+      cache: 'no-store',
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' },
       body: body ? JSON.stringify(body) : undefined
     }).then(function (r) {
