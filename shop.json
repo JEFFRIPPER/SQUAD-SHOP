@@ -8,10 +8,10 @@
       "id": "s50",
       "name": "",
       "stars": 50,
-      "price": 89,
+      "price": 85,
       "desc": "",
       "tag": "",
-      "gold": false,
+      "gold": true,
       "image": "",
       "hidden": false
     },
