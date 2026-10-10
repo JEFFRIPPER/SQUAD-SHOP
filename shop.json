@@ -42,10 +42,10 @@
       "id": "s500",
       "name": "",
       "stars": 500,
-      "price": 829,
+      "price": 800,
       "desc": "",
       "tag": "",
-      "gold": false,
+      "gold": true,
       "image": "",
       "hidden": false
     },
