@@ -1,7 +1,8 @@
 {
   "settings": {
     "receiver": "4100118887301448",
-    "support": "THKC_SQUAD?direct"
+    "support": "THKC_SQUAD?direct",
+    "notify": "a4fe57cc-3c40-4b9b-9bdf-3a746960405a"
   },
   "products": [
     {
