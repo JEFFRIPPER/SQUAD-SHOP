@@ -4,7 +4,7 @@
   // Products and settings live in shop.json next to this page. The owner
   // edits them in the "Товары" panel; on claude.ai the page saves them back
   // through the artifact capability. Elsewhere the panel stays hidden.
-  var DEFAULT_SHOP = { settings: { receiver: '', support: '' }, products: [] };
+  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '' }, products: [] };
 
   var FAQ = [
     ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придут звёзды. Карта вводится на странице ЮMoney, сайт её не видит.'],
@@ -95,6 +95,7 @@
     var s = data.settings || {};
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
     out.settings.support = cleanUser(s.support);
+    out.settings.notify = cleanKey(s.notify);
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -324,6 +325,29 @@
   }
 
   // ---- payment -----------------------------------------------------------------
+  // Order emails go through Web3Forms: its access key is public by design and
+  // keeps the owner's address out of shop.json. Mail is best effort and never
+  // holds up the payment for long.
+  var NOTIFY_URL = 'https://api.web3forms.com/submit';
+  function cleanKey(v) {
+    v = String(v || '').trim().toLowerCase();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(v) ? v : '';
+  }
+  function notify(subject, text) {
+    if (!shop.settings.notify || !window.fetch) return Promise.resolve();
+    var data = new FormData();
+    data.append('access_key', shop.settings.notify);
+    data.append('subject', subject);
+    data.append('from_name', 'SQUAD SHOP');
+    data.append('message', text);
+    var sent = fetch(NOTIFY_URL, { method: 'POST', body: data, keepalive: true }).catch(function () { /* ignore */ });
+    return Promise.race([sent, new Promise(function (done) { setTimeout(done, 2500); })]);
+  }
+  function nowText() {
+    try { return new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow' }) + ' МСК'; } catch (e) { return new Date().toString(); }
+  }
+
+  var paying = false;
   function pay(input, box, hint) {
     var user = cleanUser(input.value);
     if (!USER_RE.test(user)) {
@@ -337,6 +361,7 @@
       toast('Оплата скоро заработает: подключаем кошелёк ЮMoney');
       return;
     }
+    if (paying) return;
     var t = totals();
     var id = 'SQ-' + rid(6).toUpperCase();
     // The wallet's history shows the label: order, recipient and what to hand out.
@@ -355,7 +380,13 @@
     var form = h('form', { method: 'POST', action: 'https://yoomoney.ru/quickpay/confirm', hidden: true });
     Object.keys(fields).forEach(function (k) { form.appendChild(h('input', { type: 'hidden', name: k, value: fields[k] })); });
     document.body.appendChild(form);
-    form.submit();
+    var what = lines().map(function (l) { return '• ' + (title(l.p) || l.p.id) + (l.q > 1 ? ' ×' + l.q : '') + ' — ' + money(l.p.price * l.q); }).join('\n');
+    paying = true;
+    notify('Заказ ' + id + ' · @' + user + ' · ' + money(t.sum),
+      'Заказ: ' + id + '\nПолучатель: @' + user + '\n\n' + what + '\n\nСумма: ' + money(t.sum) +
+      '\nОплата: ' + (state.method === 'PC' ? 'кошелёк ЮMoney' : 'картой') + '\nВремя: ' + nowText() +
+      '\n\nПисьмо ушло, когда покупатель нажал «Оплатить». Выдавай, только когда в ЮMoney пришла оплата с меткой ' + id + '.')
+      .then(function () { paying = false; form.submit(); });
   }
 
   function checkReturn() {
@@ -375,6 +406,12 @@
       save();
     }
     text.appendChild(document.createTextNode('. Выдадим после проверки оплаты. Сохрани номер заказа.'));
+    var seen = false;
+    try { seen = localStorage.getItem('squadshop.back') === id; localStorage.setItem('squadshop.back', id); } catch (e) { /* ignore */ }
+    if (!seen) {
+      notify('Вернулся после оплаты: ' + id + (last && last.id === id ? ' · @' + last.user + ' · ' + money(last.sum) : ''),
+        'Покупатель вернулся с ЮMoney на сайт после заказа ' + id + '. Обычно это значит, что оплата прошла, но проверь поступление в ЮMoney.\nВремя: ' + nowText());
+    }
     $('done').hidden = false;
     history.replaceState(null, '', location.pathname + location.hash);
   }
@@ -611,8 +648,20 @@
     body.appendChild(h('h3', { class: 'admin-sub', text: 'Настройки' }));
     body.appendChild(field('setReceiver', 'Номер кошелька ЮMoney', h('div', { class: 'input' }, wallet),
       h('p', { class: 'hint', text: 'Пока пусто, кнопка «Оплатить» не работает' })));
+    var key = h('input', { id: 'setNotify', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx', maxlength: '40' });
+    key.value = draft.settings.notify;
+    var keyBox = h('div', { class: 'input' }, key);
+    key.addEventListener('input', function () {
+      draft.settings.notify = cleanKey(key.value);
+      keyBox.classList.toggle('bad', !!key.value.trim() && !draft.settings.notify);
+      markDirty();
+      refreshSave();
+    });
     body.appendChild(field('setSupport', 'Поддержка в Telegram', h('div', { class: 'input' }, h('span', { text: '@' }), sup),
       h('p', { class: 'hint', text: 'Появится кнопкой под вопросами. Для лички канала: канал?direct' })));
+    body.appendChild(field('setNotify', 'Письма о заказах (ключ Web3Forms)', keyBox,
+      h('p', { class: 'hint' }, 'Введи свою почту на ', h('a', { href: 'https://web3forms.com/#start', target: '_blank', rel: 'noopener', class: 'link-inline', text: 'web3forms.com' }),
+        ', ключ придёт письмом. Вставь его сюда и сохрани. Пусто — писем нет')));
     if (store.kind === 'github') {
       body.appendChild(adminsSection());
       body.appendChild(h('button', { type: 'button', class: 'text-btn ripple logout', onclick: function () {
