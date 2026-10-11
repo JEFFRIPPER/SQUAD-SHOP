@@ -29,13 +29,13 @@
     },
     {
       "id": "s250",
-      "name": "",
+      "name": "250 Stars",
       "stars": 250,
       "price": 380,
-      "desc": "",
+      "desc": "Золотая середина для своих желаний.",
       "tag": "Хит",
       "gold": false,
-      "image": "",
+      "image": "img/p-s250-fccf.jpg",
       "hidden": false
     },
     {
