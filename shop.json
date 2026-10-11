@@ -7,10 +7,10 @@
   "products": [
     {
       "id": "s50",
-      "name": "",
+      "name": "50 Stars",
       "stars": 50,
       "price": 80,
-      "desc": "",
+      "desc": "Маленький пакет — большие возможности",
       "tag": "Чаще берут",
       "gold": true,
       "image": "img/p-s50-3c9b.jpg",
