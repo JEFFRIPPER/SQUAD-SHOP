@@ -286,6 +286,49 @@ h1 {
 }
 .card { border-radius: 20px; padding: 16px; border: 1px solid var(--line); background: var(--surface); }
 
+/* ---- catalog toolbar: sort and category filter chips ----------------------- */
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.group-head .group-title { margin-bottom: 0; }
+.sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(255, 30, 60, 0.08);
+  color: var(--on-container);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sort .icon { width: 18px; height: 18px; fill: var(--red); }
+.sort select { appearance: none; -webkit-appearance: none; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding-right: 2px; }
+.sort select option { background: var(--surface-solid); color: var(--text); }
+.sort:focus-within { border-color: var(--red); box-shadow: 0 0 12px var(--glow-soft); }
+.cats { display: flex; gap: 8px; margin: 0 -16px 12px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; }
+.cats::-webkit-scrollbar { display: none; }
+.cat {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background var(--dur-short) var(--ease-standard), color var(--dur-short) var(--ease-standard);
+}
+.cat .icon { width: 18px; height: 18px; margin-left: -6px; }
+.cat[aria-pressed="true"] { border-color: transparent; background: rgba(255, 30, 60, 0.24); color: #fff; box-shadow: 0 0 14px var(--glow-soft) inset; }
+
 /* ---- product cards --------------------------------------------------------- */
 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .product {
