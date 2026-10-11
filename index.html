@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <div class="backdrop" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -54,7 +54,18 @@
     </section>
 
     <section class="group" id="catalog">
-      <h2 class="group-title">Товары</h2>
+      <div class="group-head">
+        <h2 class="group-title">Товары</h2>
+        <label class="sort">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>
+          <select id="sort" aria-label="Сортировка товаров">
+            <option value="">По порядку</option>
+            <option value="asc">Сначала дешевле</option>
+            <option value="desc">Сначала дороже</option>
+          </select>
+        </label>
+      </div>
+      <div class="cats" id="cats" role="group" aria-label="Категории" hidden></div>
       <div class="grid" id="products"></div>
     </section>
 
@@ -111,6 +122,6 @@
 
   <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

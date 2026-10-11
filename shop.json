@@ -14,7 +14,8 @@
       "tag": "Чаще берут",
       "gold": true,
       "image": "img/p-s50-3c9b.jpg",
-      "hidden": false
+      "hidden": false,
+      "cat": "Звёзды"
     },
     {
       "id": "s100",
@@ -25,7 +26,8 @@
       "tag": "",
       "gold": false,
       "image": "img/p-s100-fe1d.jpg",
-      "hidden": false
+      "hidden": false,
+      "cat": "Звёзды"
     },
     {
       "id": "s250",
@@ -36,7 +38,8 @@
       "tag": "Хит",
       "gold": false,
       "image": "img/p-s250-fccf.jpg",
-      "hidden": false
+      "hidden": false,
+      "cat": "Звёзды"
     },
     {
       "id": "s500",
@@ -47,7 +50,8 @@
       "tag": "",
       "gold": true,
       "image": "img/p-s500-7ffa.jpg",
-      "hidden": false
+      "hidden": false,
+      "cat": "Звёзды"
     },
     {
       "id": "prem6",
@@ -58,7 +62,8 @@
       "tag": "",
       "gold": false,
       "image": "",
-      "hidden": false
+      "hidden": false,
+      "cat": "Telegram Premium"
     },
     {
       "id": "prem12",
@@ -69,7 +74,8 @@
       "tag": "Выгодно",
       "gold": true,
       "image": "",
-      "hidden": false
+      "hidden": false,
+      "cat": "Telegram Premium"
     }
   ]
 }
