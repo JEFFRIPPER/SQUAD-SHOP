@@ -40,13 +40,13 @@
     },
     {
       "id": "s500",
-      "name": "",
+      "name": "500 Stars",
       "stars": 500,
       "price": 800,
-      "desc": "",
+      "desc": "Масштаб для тех, кто не мелочится.",
       "tag": "",
       "gold": true,
-      "image": "",
+      "image": "img/p-s500-7ffa.jpg",
       "hidden": false
     },
     {
