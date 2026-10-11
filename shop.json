@@ -18,13 +18,13 @@
     },
     {
       "id": "s100",
-      "name": "",
+      "name": "100 Stars",
       "stars": 100,
       "price": 160,
-      "desc": "",
+      "desc": "Немного блеска для ярких моментов.",
       "tag": "",
       "gold": false,
-      "image": "",
+      "image": "img/p-s100-fe1d.jpg",
       "hidden": false
     },
     {
