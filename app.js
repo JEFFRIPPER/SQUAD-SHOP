@@ -4,7 +4,7 @@
   // Products and settings live in shop.json next to this page. The owner
   // edits them in the "Товары" panel; on claude.ai the page saves them back
   // through the artifact capability. Elsewhere the panel stays hidden.
-  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '', goatcounter: '' }, products: [] };
+  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '' }, products: [] };
 
   var FAQ = [
     ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придут звёзды. Карта вводится на странице ЮMoney, сайт её не видит.'],
@@ -97,7 +97,6 @@
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
     out.settings.support = cleanUser(s.support);
     out.settings.notify = cleanKey(s.notify);
-    out.settings.goatcounter = /^[a-z0-9-]{2,50}$/.test(s.goatcounter) ? s.goatcounter : '';
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -176,7 +175,6 @@
   var MAX_QTY = 10;
   function setQty(id, q) {
     q = Math.max(0, Math.min(MAX_QTY, q));
-    if (q && !cart[id]) track('cart', byId(id));
     if (q) cart[id] = q; else delete cart[id];
     save();
     renderProducts();
@@ -199,14 +197,8 @@
   }
 
   // Cards on screen get .live, which runs their star animation.
-  // The first time a card shows up on screen counts as a view of that product.
-  var viewed = {};
   var liveObs = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
-    es.forEach(function (e) {
-      e.target.classList.toggle('live', e.isIntersecting);
-      var id = e.target.getAttribute('data-id');
-      if (e.isIntersecting && id && !viewed[id]) { viewed[id] = true; track('p', byId(id)); }
-    });
+    es.forEach(function (e) { e.target.classList.toggle('live', e.isIntersecting); });
   }) : null;
 
   var animate = true;
@@ -225,7 +217,7 @@
         ? h('div', { class: 'amount' }, rub.format(p.stars), h('small', { text: starsWord(p.stars) }))
         : h('div', { class: 'pname', text: p.name });
       var note = p.desc || (p.stars ? (p.price / p.stars).toFixed(2).replace('.', ',') + ' ₽ за звезду' : '');
-      root.appendChild(h('article', { class: 'product press' + (p.tag ? ' hot' : '') + (q ? ' in-cart' : '') + (animate ? ' enter' : ''), style: '--i:' + i, 'data-id': p.id },
+      root.appendChild(h('article', { class: 'product press' + (p.tag ? ' hot' : '') + (q ? ' in-cart' : '') + (animate ? ' enter' : ''), style: '--i:' + i },
         p.tag ? h('span', { class: 'tag' + (p.gold ? ' gold' : ''), text: p.tag }) : null,
         media(p),
         head,
@@ -416,7 +408,6 @@
       return;
     }
     if (paying) return;
-    track('pay');
     var t = totals();
     var id = 'SQ-' + rid(6).toUpperCase();
     // The wallet's history shows the label: order, recipient and what to hand out.
@@ -446,7 +437,7 @@
 
   function checkReturn() {
     var m = /[?&]paid=([^&]+)/.exec(location.search);
-    if (!m) return false;
+    if (!m) return;
     var id = decodeURIComponent(m[1]);
     var last = null;
     try { last = JSON.parse(localStorage.getItem('squadshop.last') || 'null'); } catch (e) { /* ignore */ }
@@ -469,36 +460,6 @@
     }
     $('done').hidden = false;
     history.replaceState(null, '', location.pathname + location.hash);
-    return !seen;
-  }
-
-  // ---- view statistics -----------------------------------------------------------
-  // GoatCounter counts visits; Finya reads the numbers from its API and shows them
-  // to the owner. Product views, cart adds and payments go as events: p-<id>,
-  // cart-<id>, pay and paid. The owner's own visits (a GitHub key saved in this
-  // browser) and automated browsers are not counted. The counter is called
-  // straight at its /count address, so no third-party script runs on the page.
-  var counter = '';
-  function startCounter(code) {
-    if (!code || counter || ghToken() || navigator.webdriver) return;
-    counter = 'https://' + code + '.goatcounter.com/count';
-    send({ p: location.pathname + location.search, t: document.title, r: document.referrer });
-  }
-  function send(vars) {
-    var s = window.screen || {};
-    vars.s = [s.width, s.height, window.devicePixelRatio || 1].join(',');
-    vars.rnd = Math.random().toString(36).slice(2);
-    var url = counter + '?' + Object.keys(vars).map(function (k) { return k + '=' + encodeURIComponent(vars[k] == null ? '' : vars[k]); }).join('&');
-    try {
-      // keepalive lets the «Оплатить» event finish while the page leaves for YooMoney.
-      if (window.fetch) fetch(url, { mode: 'no-cors', keepalive: true, credentials: 'omit' }).catch(function () { /* ignore */ });
-      else new Image().src = url;
-    } catch (e) { /* statistics never get in the way */ }
-  }
-  var EVENT_TITLES = { p: 'Товар', cart: 'В корзину', pay: 'Нажали «Оплатить»', paid: 'Вернулись после оплаты' };
-  function track(kind, p) {
-    if (!counter || p === null) return;
-    send({ p: kind + (p ? '-' + p.id : ''), t: EVENT_TITLES[kind] + (p ? ': ' + title(p) : ''), e: 'true' });
   }
 
   // ---- owner panel -------------------------------------------------------------
@@ -956,10 +917,7 @@
       loaded = true;
       Object.keys(cart).forEach(function (id) { var p = byId(id); if (!p || p.hidden) delete cart[id]; else if (cart[id] > MAX_QTY) cart[id] = MAX_QTY; });
       save();
-      // The return from YooMoney cleans the address before the counter sees it.
-      var back = checkReturn();
-      startCounter(shop.settings.goatcounter);
-      if (back) track('paid');
+      checkReturn();
       animate = true;
       renderCats();
       renderProducts();
