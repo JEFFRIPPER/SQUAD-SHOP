@@ -4,7 +4,7 @@
   // Products and settings live in shop.json next to this page. The owner
   // edits them in the "Товары" panel; on claude.ai the page saves them back
   // through the artifact capability. Elsewhere the panel stays hidden.
-  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '', metrika: '' }, products: [] };
+  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '', goatcounter: '' }, products: [] };
 
   var FAQ = [
     ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придут звёзды. Карта вводится на странице ЮMoney, сайт её не видит.'],
@@ -97,7 +97,7 @@
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
     out.settings.support = cleanUser(s.support);
     out.settings.notify = cleanKey(s.notify);
-    out.settings.metrika = String(s.metrika || '').replace(/\D/g, '').slice(0, 12);
+    out.settings.goatcounter = /^[a-z0-9-]{2,50}$/.test(s.goatcounter) ? s.goatcounter : '';
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -473,30 +473,32 @@
   }
 
   // ---- view statistics -----------------------------------------------------------
-  // Yandex Metrika counts visits; Finya reads the numbers from it and shows them
-  // to the owner. Product views, cart adds and payments go as extra page hits
-  // marked in the address (?p=, ?cart=, ?pay=, ?paid=). The owner's own visits
-  // (a GitHub key saved in this browser) are not counted.
-  var metrika = 0;
-  function startMetrika(id) {
-    if (!id || metrika || ghToken()) return;
-    metrika = Number(id);
-    window.ym = window.ym || function () { (window.ym.a = window.ym.a || []).push(arguments); };
-    window.ym.l = Date.now();
-    var tag = document.createElement('script');
-    tag.async = true;
-    tag.src = 'https://mc.yandex.ru/metrika/tag.js';
-    document.head.appendChild(tag);
-    window.ym(metrika, 'init', { clickmap: true, trackLinks: true, accurateTrackBounce: true });
+  // GoatCounter counts visits; Finya reads the numbers from its API and shows them
+  // to the owner. Product views, cart adds and payments go as events: p-<id>,
+  // cart-<id>, pay and paid. The owner's own visits (a GitHub key saved in this
+  // browser) and automated browsers are not counted. The counter is called
+  // straight at its /count address, so no third-party script runs on the page.
+  var counter = '';
+  function startCounter(code) {
+    if (!code || counter || ghToken() || navigator.webdriver) return;
+    counter = 'https://' + code + '.goatcounter.com/count';
+    send({ p: location.pathname + location.search, t: document.title, r: document.referrer });
   }
-  var HIT_TITLES = { p: 'Товар', cart: 'В корзину', pay: 'Нажали «Оплатить»', paid: 'Вернулись после оплаты' };
-  function track(kind, p) {
-    if (!metrika || p === null) return;
-    var page = location.origin + location.pathname;
+  function send(vars) {
+    var s = window.screen || {};
+    vars.s = [s.width, s.height, window.devicePixelRatio || 1].join(',');
+    vars.rnd = Math.random().toString(36).slice(2);
+    var url = counter + '?' + Object.keys(vars).map(function (k) { return k + '=' + encodeURIComponent(vars[k] == null ? '' : vars[k]); }).join('&');
     try {
-      window.ym(metrika, 'hit', page + '?' + kind + '=' + encodeURIComponent(p ? p.id : '1'),
-        { title: HIT_TITLES[kind] + (p ? ': ' + title(p) : ''), referer: page });
+      // keepalive lets the «Оплатить» event finish while the page leaves for YooMoney.
+      if (window.fetch) fetch(url, { mode: 'no-cors', keepalive: true, credentials: 'omit' }).catch(function () { /* ignore */ });
+      else new Image().src = url;
     } catch (e) { /* statistics never get in the way */ }
+  }
+  var EVENT_TITLES = { p: 'Товар', cart: 'В корзину', pay: 'Нажали «Оплатить»', paid: 'Вернулись после оплаты' };
+  function track(kind, p) {
+    if (!counter || p === null) return;
+    send({ p: kind + (p ? '-' + p.id : ''), t: EVENT_TITLES[kind] + (p ? ': ' + title(p) : ''), e: 'true' });
   }
 
   // ---- owner panel -------------------------------------------------------------
@@ -956,7 +958,7 @@
       save();
       // The return from YooMoney cleans the address before the counter sees it.
       var back = checkReturn();
-      startMetrika(shop.settings.metrika);
+      startCounter(shop.settings.goatcounter);
       if (back) track('paid');
       animate = true;
       renderCats();
