@@ -27,12 +27,26 @@
   --dur-short: 150ms;
   --dur-medium: 300ms;
   --dur-long: 500ms;
+  /* Material 3 Expressive springs for movement (opacity and colour keep the
+     plain curves above). Where linear() is missing they fall back to the
+     emphasized curve. */
+  --spring: var(--ease-emph-decel);        /* damping 0.8: sheets, cards */
+  --spring-bouncy: var(--ease-emph-decel); /* damping 0.6: buttons, chips, counters */
+  --dur-spring: 420ms;
+  --dur-spring-fast: 350ms;
 
   color-scheme: dark;
 }
+@supports (transition-timing-function: linear(0, 1)) {
+  :root {
+    --spring: linear(0, 0.029, 0.1, 0.195, 0.302, 0.41, 0.513, 0.608, 0.692, 0.764, 0.825, 0.874, 0.914, 0.945, 0.968, 0.986, 0.998, 1.006, 1.011, 1.014, 1.015, 1.015, 1.014, 1.013, 1.011, 1.01, 1.008, 1.007, 1.005, 1.004, 1.003, 1.002, 1);
+    --spring-bouncy: linear(0, 0.043, 0.149, 0.291, 0.446, 0.597, 0.733, 0.848, 0.94, 1.007, 1.053, 1.081, 1.093, 1.094, 1.087, 1.075, 1.061, 1.047, 1.033, 1.021, 1.011, 1.003, 0.997, 0.994, 0.992, 0.991, 0.991, 0.992, 0.993, 0.995, 0.996, 0.997, 1);
+  }
+}
 
 * { box-sizing: border-box; }
-html { background: var(--bg); scroll-behavior: smooth; scroll-padding-top: 76px; }
+/* The gutter keeps the page from jumping sideways when a sheet locks scrolling. */
+html { background: var(--bg); scroll-behavior: smooth; scroll-padding-top: 76px; scrollbar-gutter: stable; }
 /* The page paints its own dark ground: the host's white must never show through. */
 body { background: var(--bg); }
 main, .foot { position: relative; z-index: 1; }
@@ -40,7 +54,7 @@ html, body {
   margin: 0;
   min-height: 100%;
   color: var(--text);
-  font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  font-family: Roboto, system-ui, -apple-system, "Segoe UI", Arial, sans-serif; /* Android ships Roboto: no web font to wait for */
   font-size: 14px;
   line-height: 20px;
   letter-spacing: 0.25px;
@@ -100,17 +114,38 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
 @keyframes wave-grow { to { transform: scale(1); } }
 @keyframes wave-fade { to { opacity: 0; } }
 
-.press { transition: border-color var(--dur-medium) var(--ease-standard), box-shadow var(--dur-medium) var(--ease-standard), transform var(--dur-medium) var(--ease-standard); }
-.press.pressed {
-  border-color: var(--red);
-  box-shadow: 0 0 0 1px var(--red) inset, 0 0 22px var(--glow), 0 0 44px -8px var(--glow);
-  transform: scale(0.985);
-  transition-duration: var(--dur-short);
+.press { transition: transform var(--dur-spring) var(--spring); }
+/* Pressed glow and ring are painted once and only fade: transitioning
+   box-shadow itself repainted the card on every frame. */
+.press::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 1px var(--red) inset, 0 0 28px -6px var(--glow) inset;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-medium) var(--ease-standard);
 }
+.press.pressed { transform: scale(0.97); transition-duration: var(--dur-short); transition-timing-function: var(--ease-standard); }
+.press.pressed::after { opacity: 1; transition-duration: var(--dur-short); }
 .press.ripple::before, .press .wave { background: var(--red); }
 
-.enter { opacity: 0; animation: rise var(--dur-long) var(--ease-emph-decel) forwards; animation-delay: calc(var(--i, 0) * 45ms); }
-@keyframes rise { from { opacity: 0; transform: translate3d(0, 24px, 0); } to { opacity: 1; transform: none; } }
+/* Entrance: only the start state is filled, so once it ends the element's own
+   transform (press, hover) works again. */
+.enter { animation: rise var(--dur-long) var(--ease-emph-decel) backwards; animation-delay: calc(var(--i, 0) * 45ms); }
+@keyframes rise { from { opacity: 0; transform: translate3d(0, 24px, 0); } }
+/* Below the first screen things rise as they scroll in. Scroll-driven
+   animations run on the compositor, so scrolling stays smooth; browsers
+   without them simply show the content. */
+@keyframes reveal { from { opacity: 0; transform: translate3d(0, 40px, 0) scale(0.96); } }
+@supports (animation-timeline: view()) {
+  .reveal, .product:not(.enter) {
+    animation: reveal linear backwards;
+    animation-timeline: view();
+    animation-range: entry 0% entry 85%;
+  }
+}
 /* The halo pulses by opacity of a fixed glow: animating box-shadow itself
    repaints on every frame. */
 .logo-ring, .done-mark { position: relative; }
@@ -125,7 +160,6 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   animation: halo 3.2s ease-in-out infinite;
 }
 @keyframes halo { 50% { opacity: 1; } }
-@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
 
 /* ---- buttons --------------------------------------------------------------- */
 .btn-filled {
@@ -142,12 +176,15 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   font-weight: 500;
   letter-spacing: 0.1px;
   box-shadow: 0 0 22px var(--glow-soft), 0 4px 14px rgba(0, 0, 0, 0.5);
-  transition: box-shadow var(--dur-medium) var(--ease-standard);
+  transition: border-radius var(--dur-spring-fast) var(--spring-bouncy), box-shadow var(--dur-medium) var(--ease-standard);
 }
 @media (hover: hover) { .btn-filled:hover { box-shadow: 0 0 30px var(--glow), 0 4px 14px rgba(0, 0, 0, 0.5); } }
 .btn-filled .icon { width: 18px; height: 18px; }
 .btn-filled.wide { width: 100%; height: 52px; border-radius: 26px; font-size: 16px; }
 .btn-filled:disabled { background: rgba(255, 255, 255, 0.08); color: rgba(248, 233, 234, 0.38); box-shadow: none; cursor: default; }
+/* Pressed buttons square off a little and spring back: Material 3 Expressive. */
+.btn-filled:not(:disabled):active, .btn-tonal:active, .cat:active, .sort:active, .seg button:active { border-radius: 10px; }
+.btn-filled.wide:not(:disabled):active, .cart-bar-btn:active { border-radius: 16px; }
 .btn-tonal {
   display: inline-flex;
   align-items: center;
@@ -161,6 +198,7 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   color: var(--on-container);
   font-weight: 500;
   letter-spacing: 0.1px;
+  transition: border-radius var(--dur-spring-fast) var(--spring-bouncy);
 }
 .btn-tonal .icon { width: 18px; height: 18px; }
 .icon-btn {
@@ -194,18 +232,32 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   text-align: center;
   box-shadow: 0 0 10px var(--glow);
 }
-.badge.pop { animation: pop 400ms var(--ease-emph-decel); }
+
 
 /* ---- top app bar ----------------------------------------------------------- */
 .topbar {
   position: sticky;
   top: env(safe-area-inset-top, 0px);
   z-index: 20;
-  /* No backdrop blur: behind the bar the background moves all the time, so the
-     blur was recomputed every frame and the page lagged on phones. */
-  background: linear-gradient(180deg, rgba(7, 2, 3, 0.97), rgba(7, 2, 3, 0.9));
-  border-bottom: 1px solid var(--line);
+  isolation: isolate;
 }
+/* Material 3 top app bar: clear at the top of the page, a solid surface with a
+   divider once content scrolls under it. Only the layer's opacity changes.
+   No backdrop blur: the background behind moves all the time, so the blur was
+   recomputed every frame and the page lagged on phones. */
+.topbar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: #0a0304;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.9);
+  opacity: 0;
+  transition: opacity var(--dur-medium) var(--ease-standard);
+}
+.topbar.scrolled::before { opacity: 1; }
+#topSentinel { position: absolute; top: 0; left: 0; width: 1px; height: 8px; pointer-events: none; }
 .topbar-inner { max-width: 1080px; margin: 0 auto; height: 64px; padding: 0 12px 0 16px; display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 12px; }
 .brand b { font-family: 'Squad', 'Roboto', sans-serif; font-weight: 400; font-size: 22px; line-height: 28px; letter-spacing: 0.5px; transform: skewX(-8deg); }
@@ -249,12 +301,14 @@ h1 {
   margin: 0;
   font-family: 'Squad', 'Roboto', sans-serif;
   font-weight: 400;
-  font-size: 32px;
+  /* «Звёзды Telegram» stays on one line down to 360px wide screens. */
+  font-size: clamp(24px, 7.6vw, 32px);
   line-height: 40px;
   letter-spacing: 0.5px;
-  transform: skewX(-8deg);
-  transform-origin: 0 100%;
 }
+/* Each part leans by itself: skewing the whole heading shifted a wrapped first
+   line to the right of the second. */
+h1 > span, h1 > em { display: inline-block; transform: skewX(-8deg); }
 .lead-text { margin: 10px 0 0; max-width: 560px; font-size: 16px; line-height: 24px; letter-spacing: 0.5px; color: var(--text-2); }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 20px; }
 .chip {
@@ -303,12 +357,13 @@ h1 {
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
+  transition: border-radius var(--dur-spring-fast) var(--spring-bouncy);
 }
 .sort .icon { width: 18px; height: 18px; fill: var(--red); }
 .sort select { appearance: none; -webkit-appearance: none; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding-right: 2px; }
 .sort select option { background: var(--surface-solid); color: var(--text); }
 .sort:focus-within { border-color: var(--red); box-shadow: 0 0 12px var(--glow-soft); }
-.cats { display: flex; gap: 8px; margin: 0 -16px 12px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; }
+.cats { display: flex; gap: 8px; margin: 0 -16px 12px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; contain: content; }
 .cats::-webkit-scrollbar { display: none; }
 .cat {
   display: inline-flex;
@@ -324,10 +379,14 @@ h1 {
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background var(--dur-short) var(--ease-standard), color var(--dur-short) var(--ease-standard);
+  transition: background var(--dur-short) var(--ease-standard), color var(--dur-short) var(--ease-standard), border-color var(--dur-short) var(--ease-standard), border-radius var(--dur-spring-fast) var(--spring-bouncy);
 }
-.cat .icon { width: 18px; height: 18px; margin-left: -6px; }
+/* Material 3 filter chip: the check slides in when the chip is selected. */
+/* Hidden, the icon takes no room and cancels the flex gap; shown, it eats into
+   the left padding as Material 3 filter chips do. */
+.cat .icon { width: 0; height: 18px; margin: 0 -6px 0 0; opacity: 0; transform: scale(0.4); transition: width var(--dur-spring-fast) var(--spring), margin var(--dur-spring-fast) var(--spring), opacity var(--dur-short) linear, transform var(--dur-spring-fast) var(--spring-bouncy); }
 .cat[aria-pressed="true"] { border-color: transparent; background: rgba(255, 30, 60, 0.24); color: #fff; box-shadow: 0 0 14px var(--glow-soft) inset; }
+.cat[aria-pressed="true"] .icon { width: 18px; margin: 0 0 0 -6px; opacity: 1; transform: none; }
 
 /* ---- product cards --------------------------------------------------------- */
 .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
@@ -345,7 +404,12 @@ h1 {
   overflow: hidden;
 }
 .product.hot { border-color: var(--line-strong); background: radial-gradient(90% 70% at 50% 0%, rgba(255, 34, 64, 0.3), transparent 70%), var(--surface-high); }
+.product { transition: transform var(--dur-spring) var(--spring), border-color var(--dur-medium) var(--ease-standard); }
 .product.in-cart { border-color: var(--red); box-shadow: 0 0 0 1px var(--red) inset, 0 0 24px -6px var(--glow); }
+@media (hover: hover) {
+  .product:hover { transform: translate3d(0, -4px, 0); }
+  .product:hover::after { opacity: 0.55; }
+}
 .tag {
   position: absolute;
   top: 12px;
@@ -364,7 +428,9 @@ h1 {
 }
 .tag.gold { background: linear-gradient(180deg, #ffe08a, #e0a526); color: #3d2e00; box-shadow: 0 0 12px rgba(255, 207, 90, 0.4); }
 .stars { position: relative; height: 64px; margin-bottom: 6px; }
-.stars .icon { position: absolute; fill: var(--gold); filter: drop-shadow(0 0 8px rgba(255, 207, 90, 0.7)); animation: twinkle 3.6s ease-in-out infinite; animation-play-state: paused; }
+.stars .icon { position: absolute; fill: var(--gold); animation: twinkle 3.6s ease-in-out infinite; animation-play-state: paused; }
+/* Only the big icon glows: a filter on every moving star cost a lot on phones. */
+.stars .icon:first-child { filter: drop-shadow(0 0 8px rgba(255, 207, 90, 0.7)); }
 /* Stars twinkle only on cards on screen (app.js marks them .live): dozens of
    animated icons at once made the page lag on phones. */
 .product.live .stars .icon { animation-play-state: running; }
@@ -384,6 +450,27 @@ h1 {
 .stepper button:disabled { opacity: 0.38; }
 .stepper .icon { width: 20px; height: 20px; }
 .stepper b { font-size: 16px; font-variant-numeric: tabular-nums; }
+/* «В корзину» turns into the stepper and back with a small spring. */
+.swap { animation: swap-in var(--dur-spring-fast) var(--spring-bouncy) backwards; }
+@keyframes swap-in { from { opacity: 0; transform: scale(0.82); } }
+
+/* Placeholder cards while shop.json loads. The shine moves by transform only. */
+.product.skeleton { min-height: 288px; pointer-events: none; }
+.skel { display: block; border-radius: 8px; background: rgba(255, 255, 255, 0.06); }
+.skel.media { border-radius: 16px; background: rgba(255, 30, 60, 0.08); }
+.skel.l1 { width: 60%; height: 28px; margin-top: 6px; }
+.skel.l2 { width: 40%; height: 20px; margin-top: 6px; }
+.skel.l3 { width: 90%; height: 14px; margin-top: 10px; }
+.skel.btn { height: 40px; margin-top: auto; border-radius: 20px; }
+.product.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255, 90, 110, 0.08) 50%, transparent 70%);
+  transform: translate3d(-100%, 0, 0);
+  animation: shimmer 1.4s var(--ease-standard) infinite;
+}
+@keyframes shimmer { to { transform: translate3d(100%, 0, 0); } }
 
 /* ---- steps ----------------------------------------------------------------- */
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -421,12 +508,13 @@ h1 {
   font-weight: 500;
 }
 .qa > button span { flex: 1; }
-.qa > button .icon { fill: var(--red); transition: transform var(--dur-medium) var(--ease-emph-decel); }
+.qa > button .icon { fill: var(--red); transition: transform var(--dur-spring) var(--spring-bouncy); }
 .qa.open > button .icon { transform: rotate(180deg); }
 .qa .ans { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-medium) var(--ease-emph-decel); }
 .qa.open .ans { grid-template-rows: 1fr; }
 .qa .ans > div { overflow: hidden; }
-.qa .ans p { margin: 0; padding: 0 16px 16px; color: var(--text-2); }
+.qa .ans p { margin: 0; padding: 0 16px 16px; color: var(--text-2); opacity: 0; transform: translate3d(0, -6px, 0); transition: opacity var(--dur-short) linear, transform var(--dur-medium) var(--ease-standard); }
+.qa.open .ans p { opacity: 1; transform: none; transition-delay: 60ms; }
 
 /* ---- footer ---------------------------------------------------------------- */
 .foot { margin-top: 36px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
@@ -470,7 +558,8 @@ h1 {
 .cart-bar-btn b { font-variant-numeric: tabular-nums; }
 
 /* ---- sheet (bottom sheet on phones, dialog on wide screens) ---------------- */
-.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.62); animation: fade-in-plain var(--dur-medium) linear; }
+.scrim { position: fixed; inset: 0; z-index: 30; background: rgba(0, 0, 0, 0.62); animation: fade-in-plain var(--dur-medium) linear; transition: opacity var(--dur-medium) var(--ease-standard); }
+.scrim.dragging { transition: none; }
 .scrim.leave { animation: fade-out-plain 200ms linear forwards; }
 @keyframes fade-in-plain { from { opacity: 0; } }
 @keyframes fade-out-plain { to { opacity: 0; } }
@@ -490,15 +579,20 @@ h1 {
     radial-gradient(100% 50% at 50% 0%, rgba(255, 34, 64, 0.16), transparent 70%),
     var(--surface-solid);
   box-shadow: 0 -12px 48px -12px rgba(220, 0, 40, 0.55);
-  animation: sheet-in var(--dur-long) var(--ease-emph-decel);
+  animation: sheet-in var(--dur-long) var(--spring);
 }
+/* Once in, the entrance is dropped so it can't replay after a drag. While the
+   finger drags the sheet it follows 1:1; let go and it springs back. */
+.sheet.shown { animation: none; }
 .sheet.leave { animation: sheet-out 250ms var(--ease-emph-accel) forwards; }
+.sheet.settle { transition: transform var(--dur-spring) var(--spring); }
 @keyframes sheet-in { from { transform: translate3d(0, 100%, 0); } }
 @keyframes sheet-out { to { transform: translate3d(0, 100%, 0); } }
-.handle { width: 32px; height: 4px; margin: 16px auto 4px; border-radius: 2px; background: rgba(248, 233, 234, 0.4); }
-.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 4px 20px; }
+.handle { display: flex; justify-content: center; padding: 16px 0 4px; touch-action: none; cursor: grab; }
+.handle::before { content: ""; width: 32px; height: 4px; border-radius: 2px; background: rgba(248, 233, 234, 0.4); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 4px 20px; touch-action: none; }
 .sheet-head h2 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 500; }
-.sheet-body { overflow-y: auto; padding: 4px 20px calc(20px + env(safe-area-inset-bottom)); }
+.sheet-body { overflow-y: auto; overscroll-behavior: contain; padding: 4px 20px calc(20px + env(safe-area-inset-bottom)); }
 
 @media (min-width: 720px) {
   .sheet {
@@ -511,7 +605,7 @@ h1 {
     border-radius: 28px;
     border-bottom: 1px solid var(--line-strong);
     transform: translate(-50%, -50%);
-    animation: dialog-in var(--dur-medium) var(--ease-emph-decel);
+    animation: dialog-in var(--dur-spring) var(--spring);
   }
   .sheet.leave { animation: dialog-out 200ms var(--ease-emph-accel) forwards; }
   .handle { display: none; }
@@ -521,6 +615,7 @@ h1 {
 @keyframes dialog-out { to { opacity: 0; transform: translate(-50%, -50%) scale(0.94); } }
 
 .line { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.line.gone { opacity: 0; transform: translate3d(24px, 0, 0); transition: opacity var(--dur-short) linear, transform var(--dur-medium) var(--ease-emph-accel); }
 .line .lead { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--container); }
 .line .lead .icon { width: 22px; height: 22px; fill: var(--gold); filter: drop-shadow(0 0 6px rgba(255, 207, 90, 0.6)); }
 .line .body { flex: 1; min-width: 0; }
@@ -561,11 +656,13 @@ h1 {
   background: transparent;
   color: var(--text);
   font-weight: 500;
+  transition: background var(--dur-short) var(--ease-standard), border-radius var(--dur-spring-fast) var(--spring-bouncy);
 }
 .seg button:first-child { border-radius: 22px 0 0 22px; }
 .seg button:last-child { border-radius: 0 22px 22px 0; border-left: 0; }
 .seg button[aria-pressed="true"] { background: rgba(255, 30, 60, 0.22); color: #fff; box-shadow: 0 0 16px var(--glow-soft) inset; }
 .seg .icon { width: 18px; height: 18px; }
+.seg button[aria-pressed="true"] .icon { animation: swap-in var(--dur-spring-fast) var(--spring-bouncy); }
 
 .total { display: flex; align-items: baseline; justify-content: space-between; margin: 22px 0 14px; }
 .total span { color: var(--text-2); font-size: 16px; }
@@ -578,6 +675,9 @@ h1 {
 
 /* ---- success dialog -------------------------------------------------------- */
 .dialog-wrap { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; padding: 24px; background: rgba(0, 0, 0, 0.66); animation: fade-in-plain var(--dur-medium) linear; }
+.dialog-wrap.leave { animation: fade-out-plain 200ms linear forwards; }
+.dialog-wrap.leave .dialog { animation: pop-out 200ms var(--ease-emph-accel) forwards; }
+@keyframes pop-out { to { opacity: 0; transform: scale(0.92); } }
 .dialog {
   width: 100%;
   max-width: 380px;
@@ -587,9 +687,10 @@ h1 {
   background: radial-gradient(100% 60% at 50% 0%, rgba(255, 34, 64, 0.22), transparent 70%), var(--surface-solid);
   text-align: center;
   box-shadow: 0 0 48px -10px var(--glow);
-  animation: pop-in var(--dur-long) var(--ease-emph-decel);
+  animation: pop-in var(--dur-spring) var(--spring);
 }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.85); } }
+.done-mark .icon { animation: swap-in var(--dur-spring) var(--spring-bouncy) 150ms backwards; }
 .done-mark { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, var(--red), var(--red-deep)); }
 .done-mark .icon { width: 34px; height: 34px; fill: #fff; }
 .dialog h2 { margin: 0 0 8px; font-size: 22px; line-height: 28px; font-weight: 500; }
@@ -600,7 +701,7 @@ h1 {
 .snackbar {
   position: fixed;
   left: 50%;
-  top: 76px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   z-index: 50;
   max-width: calc(100% - 32px);
   width: max-content;
@@ -610,12 +711,14 @@ h1 {
   color: #2a0a0e;
   font-weight: 500;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
-  transform: translate(-50%, -16px);
+  transform: translate3d(-50%, 24px, 0) scale(0.96);
   opacity: 0;
   pointer-events: none;
-  transition: transform var(--dur-medium) var(--ease-emph-decel), opacity var(--dur-short) linear;
+  transition: transform var(--dur-medium) var(--ease-emph-accel), opacity var(--dur-short) linear;
 }
-.snackbar.show { transform: translate(-50%, 0); opacity: 1; }
+/* Material 3 keeps the snackbar at the bottom, above the floating cart bar. */
+body.has-bar .snackbar { bottom: calc(84px + env(safe-area-inset-bottom)); }
+.snackbar.show { transform: translate3d(-50%, 0, 0); opacity: 1; transition: transform var(--dur-spring) var(--spring), opacity var(--dur-short) linear; }
 
 /* ---- wide screens ---------------------------------------------------------- */
 @media (min-width: 640px) {
@@ -634,7 +737,7 @@ h1 {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
-  .enter { opacity: 1; }
+  .reveal, .product { animation: none !important; }
 }
 
 /* ---- custom products ------------------------------------------------------- */
@@ -643,6 +746,7 @@ h1 {
 .stars.gifts .icon:nth-child(1) { fill: var(--red); filter: drop-shadow(0 0 10px var(--glow)); }
 .pname { font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: 0; overflow-wrap: anywhere; }
 .grid-empty { grid-column: 1 / -1; margin: 8px 0; padding: 24px 16px; text-align: center; color: var(--text-2); border: 1px dashed var(--line-strong); border-radius: 20px; }
+#support { display: contents; }
 .btn-tonal.support { align-self: center; margin-top: 8px; }
 .lead.img { overflow: hidden; background: var(--container); }
 .lead.img img { width: 100%; height: 100%; object-fit: cover; }

@@ -7,11 +7,11 @@
   var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '' }, products: [] };
 
   var FAQ = [
-    ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придут звёзды. Карта вводится на странице ЮMoney, сайт её не видит.'],
-    ['Когда придут звёзды?', 'После проверки оплаты, обычно в течение дня. Номер заказа покажем сразу после оплаты, по нему можно спросить о статусе.'],
+    ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придёт заказ. Карта вводится на странице ЮMoney, сайт её не видит.'],
+    ['Когда придёт заказ?', 'После проверки оплаты, обычно в течение дня. Номер заказа покажем сразу после оплаты, по нему можно спросить о статусе.'],
     ['Можно подарить другу?', 'Да. Просто укажи @username друга вместо своего.'],
     ['Как оплатить?', 'Банковской картой или из кошелька ЮMoney. Оплата проходит на странице ЮMoney.'],
-    ['Что если ошибся в @username?', 'Напиши нам до выдачи, поправим. Если звёзды уже отправлены, вернуть их нельзя, поэтому проверь имя перед оплатой.']
+    ['Что если ошибся в @username?', 'Напиши нам до выдачи, поправим. Если заказ уже выдан, вернуть его нельзя, поэтому проверь имя перед оплатой.']
   ];
 
   var SVG = 'http://www.w3.org/2000/svg';
@@ -173,25 +173,53 @@
   // One line of the cart holds at most this many packs, so an order stays
   // within what a single YooMoney payment can take.
   var MAX_QTY = 10;
+  // A cart change touches only its own card and cart line. Rebuilding the whole
+  // grid on every tap restarted the animations and stalled phones.
   function setQty(id, q) {
+    var prev = cart[id] || 0;
     q = Math.max(0, Math.min(MAX_QTY, q));
+    if (q === prev) return;
     if (q) cart[id] = q; else delete cart[id];
     save();
-    renderProducts();
+    var dir = q > prev ? 'up' : 'down';
+    if (cards[id]) fillAct(cards[id], byId(id), dir);
     renderBar(true);
-    if (!$('sheet').hidden && mode === 'cart') renderCart();
+    if (!$('sheet').hidden && mode === 'cart') updateCartLine(id, dir);
   }
+
+  // Typography: one- and two-letter words and numbers stick to the next word,
+  // separators to the previous one, so a line never ends on «6» or starts with «·».
+  var SHORT = /(^|\s)([0-9A-Za-zА-яЁё]{1,2}) (?=\S)/g;
+  function nb(s) { return String(s).replace(SHORT, '$1$2 ').replace(SHORT, '$1$2 ').replace(/ ([—–·])/g, ' $1'); }
+
+  // Small one-off animations go through the Web Animations API: restarting a CSS
+  // animation needs a forced reflow of the whole page on every tap.
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var BOUNCY = getComputedStyle(document.documentElement).getPropertyValue('--spring-bouncy').trim() || 'cubic-bezier(0.05, 0.7, 0.1, 1)';
+  function play(el, frames, ms) {
+    if (still || !el.animate) return;
+    try { el.animate(frames, { duration: ms || 350, easing: BOUNCY }); } catch (e) { /* old engine: skip */ }
+  }
+  var POP = [{ transform: 'scale(1)' }, { transform: 'scale(1.3)', offset: 0.4 }, { transform: 'scale(1)' }];
 
   // ---- catalog ---------------------------------------------------------------
   function stepper(id, q) {
-    return h('div', { class: 'stepper' },
-      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Убрать один', onclick: function () { setQty(id, q - 1); } }, icon(q > 1 ? 'remove' : 'del')),
-      h('b', { 'aria-live': 'polite', text: String(q) }),
-      h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', disabled: q >= MAX_QTY, onclick: function () { setQty(id, q + 1); } }, icon('add')));
+    // The buttons read the cart when tapped: the stepper outlives many changes.
+    var num = h('b', { 'aria-live': 'polite', text: String(q) });
+    var minus = h('button', { type: 'button', class: 'ripple', 'aria-label': 'Убрать один', onclick: function () { setQty(id, (cart[id] || 0) - 1); } }, icon(q > 1 ? 'remove' : 'del'));
+    var plus = h('button', { type: 'button', class: 'ripple', 'aria-label': 'Добавить ещё', disabled: q >= MAX_QTY, onclick: function () { setQty(id, (cart[id] || 0) + 1); } }, icon('add'));
+    var el = h('div', { class: 'stepper' }, minus, num, plus);
+    el.update = function (n, dir) {
+      num.textContent = String(n);
+      if (dir) play(num, [{ opacity: 0, transform: 'translate3d(0,' + (dir === 'up' ? 55 : -55) + '%,0)' }, { opacity: 1, transform: 'none' }]);
+      minus.firstChild.firstChild.setAttribute('d', PATHS[n > 1 ? 'remove' : 'del']);
+      plus.disabled = n >= MAX_QTY;
+    };
+    return el;
   }
 
   function media(p) {
-    if (p.image) return h('div', { class: 'media' }, h('img', { src: imgUrl(p.image), alt: '', loading: 'lazy' }));
+    if (p.image) return h('div', { class: 'media' }, h('img', { src: imgUrl(p.image), alt: '', loading: 'lazy', decoding: 'async', width: '320', height: '320' }));
     var name = p.stars ? 'star' : 'gift';
     return h('div', { class: 'stars' + (p.stars ? '' : ' gifts'), 'aria-hidden': 'true' }, icon(name), icon('star'), icon('star'), icon('star'));
   }
@@ -201,35 +229,68 @@
     es.forEach(function (e) { e.target.classList.toggle('live', e.isIntersecting); });
   }) : null;
 
+  // Cards are built once per version of the shop and reused: a filter or sort
+  // only reorders them, so photos are not decoded again.
+  var cards = {};
+  function resetCards() {
+    if (liveObs) liveObs.disconnect();
+    cards = {};
+  }
+  function buildCard(p) {
+    var head = p.stars
+      ? h('div', { class: 'amount' }, rub.format(p.stars), h('small', { text: starsWord(p.stars) }))
+      : h('div', { class: 'pname', text: nb(p.name) });
+    var note = p.desc || (p.stars ? (p.price / p.stars).toFixed(2).replace('.', ',') + ' ₽ за звезду' : '');
+    var el = h('article', { class: 'product press' + (p.tag ? ' hot' : ''), 'data-id': p.id },
+      p.tag ? h('span', { class: 'tag' + (p.gold ? ' gold' : ''), text: p.tag }) : null,
+      media(p),
+      head,
+      h('div', { class: 'price', text: money(p.price) }),
+      note ? h('div', { class: 'per', text: nb(note) }) : null,
+      h('div', { class: 'act' }));
+    fillAct(el, p);
+    if (liveObs) liveObs.observe(el); else el.classList.add('live');
+    return el;
+  }
+  // The card's action: «В корзину» or the stepper. `dir` animates a change.
+  function fillAct(el, p, dir) {
+    var q = cart[p.id] || 0;
+    var act = el.lastChild;
+    var cur = act.firstChild;
+    el.classList.toggle('in-cart', !!q);
+    if (q && cur && cur.update) { cur.update(q, dir); return; }
+    var next = q ? stepper(p.id, q) : h('button', { type: 'button', class: 'btn-tonal ripple', onclick: function () { setQty(p.id, 1); toast(title(p) + ': в корзине'); } }, icon('add'), 'В корзину');
+    if (dir) next.classList.add('swap');
+    act.textContent = '';
+    act.appendChild(next);
+  }
+
+  function skeleton() {
+    return h('div', { class: 'product skeleton', 'aria-hidden': 'true' },
+      h('span', { class: 'skel media' }), h('span', { class: 'skel l1' }), h('span', { class: 'skel l2' }), h('span', { class: 'skel l3' }), h('span', { class: 'skel btn' }));
+  }
+
   var animate = true;
   function renderProducts() {
     var root = $('products');
-    if (liveObs) liveObs.disconnect();
-    root.textContent = '';
     var list = shown();
-    if (!list.length) {
-      root.appendChild(h('p', { class: 'grid-empty', text: !loaded ? 'Загружаю товары…' : visible().length ? 'В этой категории пока пусто.' : 'Товаров пока нет. Загляни позже.' }));
-      return;
-    }
-    list.forEach(function (p, i) {
-      var q = cart[p.id] || 0;
-      var head = p.stars
-        ? h('div', { class: 'amount' }, rub.format(p.stars), h('small', { text: starsWord(p.stars) }))
-        : h('div', { class: 'pname', text: p.name });
-      var note = p.desc || (p.stars ? (p.price / p.stars).toFixed(2).replace('.', ',') + ' ₽ за звезду' : '');
-      root.appendChild(h('article', { class: 'product press' + (p.tag ? ' hot' : '') + (q ? ' in-cart' : '') + (animate ? ' enter' : ''), style: '--i:' + i },
-        p.tag ? h('span', { class: 'tag' + (p.gold ? ' gold' : ''), text: p.tag }) : null,
-        media(p),
-        head,
-        h('div', { class: 'price', text: money(p.price) }),
-        note ? h('div', { class: 'per', text: note }) : null,
-        h('div', { class: 'act' }, q ? stepper(p.id, q) :
-          h('button', { type: 'button', class: 'btn-tonal ripple', onclick: function () { setQty(p.id, 1); toast(title(p) + ': в корзине'); } }, icon('add'), 'В корзину'))));
+    var nodes;
+    if (!loaded) nodes = [skeleton(), skeleton(), skeleton(), skeleton()];
+    else if (!list.length) nodes = [h('p', { class: 'grid-empty', text: visible().length ? 'В этой категории пока пусто.' : 'Товаров пока нет. Загляни позже.' })];
+    else nodes = list.map(function (p, i) {
+      var el = cards[p.id] || (cards[p.id] = buildCard(p));
+      el.style.setProperty('--i', i);
+      // Re-inserted nodes restart their animation, so a filter replays the entrance.
+      if (animate) el.classList.add('enter');
+      return el;
     });
-    Array.prototype.forEach.call(root.children, function (el) { if (liveObs) liveObs.observe(el); else el.classList.add('live'); });
-    animate = false;
+    root.replaceChildren.apply(root, nodes);
+    root.setAttribute('aria-busy', String(!loaded));
+    if (loaded) animate = false;
   }
 
+  // Category chips are built once per version of the shop; a tap only moves
+  // the selection, so the chip keeps its ripple and the check slides in.
   function renderCats() {
     var root = $('cats');
     var list = categories();
@@ -238,50 +299,56 @@
     root.hidden = list.length < 2;
     if (root.hidden) return;
     function chip(value, label) {
-      var on = state.cat === value;
-      return h('button', { type: 'button', class: 'cat ripple', 'aria-pressed': String(on), onclick: function () {
+      return h('button', { type: 'button', class: 'cat ripple', 'aria-pressed': String(state.cat === value), onclick: function () {
         if (state.cat === value) return;
         state.cat = value;
         save();
+        Array.prototype.forEach.call(root.children, function (b, i) { b.setAttribute('aria-pressed', String((i ? list[i - 1] : null) === value)); });
         animate = true;
-        renderCats();
         renderProducts();
-      } }, on ? icon('check') : null, label);
+      } }, icon('check'), label);
     }
     root.appendChild(chip(null, 'Все'));
     list.forEach(function (c) { root.appendChild(chip(c, c === OTHER ? 'Другое' : c)); });
   }
 
+  // Questions are drawn once; only the support button follows the settings.
   function renderFaq() {
     var root = $('faq');
     root.textContent = '';
-    FAQ.forEach(function (f, i) {
-      var qa = h('div', { class: 'qa enter', style: '--i:' + i });
+    FAQ.forEach(function (f) {
+      var qa = h('div', { class: 'qa reveal' });
       var btn = h('button', { type: 'button', class: 'ripple', 'aria-expanded': 'false', onclick: function () {
         var open = qa.classList.toggle('open');
         btn.setAttribute('aria-expanded', String(open));
       } }, h('span', { text: f[0] }), icon('expand'));
       qa.appendChild(btn);
-      qa.appendChild(h('div', { class: 'ans' }, h('div', null, h('p', { text: f[1] }))));
+      qa.appendChild(h('div', { class: 'ans' }, h('div', null, h('p', { text: nb(f[1]) }))));
       root.appendChild(qa);
     });
-    if (shop.settings.support) {
-      // support is a username, optionally with a link suffix: THKC_SQUAD?direct
-      // opens the channel's direct messages.
-      root.appendChild(h('a', { class: 'btn-tonal ripple support', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support.split('?')[0] }));
-    }
+    root.appendChild(h('div', { id: 'support' }));
+  }
+  function renderSupport() {
+    var slot = $('support');
+    slot.textContent = '';
+    if (!shop.settings.support) return;
+    // support is a username, optionally with a link suffix: THKC_SQUAD?direct
+    // opens the channel's direct messages.
+    slot.appendChild(h('a', { class: 'btn-tonal ripple support reveal', href: 'https://t.me/' + shop.settings.support, target: '_blank', rel: 'noopener', text: 'Написать в поддержку @' + shop.settings.support.split('?')[0] }));
   }
 
   // ---- cart bar and badge ------------------------------------------------------
   function renderBar(bump) {
     var t = totals();
     var badge = $('cartBadge');
+    var bar = $('cartBar');
     badge.hidden = !t.count;
     badge.textContent = String(t.count);
-    if (bump && t.count) { badge.classList.remove('pop'); void badge.offsetWidth; badge.classList.add('pop'); }
-    $('cartBar').hidden = !t.count || !$('sheet').hidden;
+    bar.hidden = !t.count || !$('sheet').hidden;
+    document.body.classList.toggle('has-bar', !bar.hidden);
     $('cartBarCount').textContent = String(t.count);
     $('cartBarSum').textContent = money(t.sum);
+    if (bump && t.count) { play(badge, POP); if (!bar.hidden) play($('cartBarCount'), POP); }
   }
 
   // ---- sheet -----------------------------------------------------------------
@@ -293,24 +360,33 @@
     return h('div', { class: 'field' }, h('label', { for: id, text: label }), control, hint || null);
   }
 
+  // The cart sheet keeps its nodes while open: a quantity change updates the
+  // line and the total in place, so the @username field keeps focus and text.
+  var cartView = null;
+  function cartLine(l) {
+    var sub = h('span', { text: money(l.p.price) + (l.q > 1 ? ' × ' + l.q : '') });
+    var st = stepper(l.p.id, l.q);
+    var el = h('div', { class: 'line', 'data-id': l.p.id },
+      l.p.image ? h('span', { class: 'lead img' }, h('img', { src: imgUrl(l.p.image), alt: '', decoding: 'async' })) : h('span', { class: 'lead' }, icon(l.p.stars ? 'star' : 'gift')),
+      h('div', { class: 'body' }, h('b', { text: title(l.p) }), sub),
+      st);
+    el.update = function (p, q, dir) { sub.textContent = money(p.price) + (q > 1 ? ' × ' + q : ''); st.update(q, dir); };
+    return el;
+  }
+
   function renderCart() {
     $('sheetTitle').textContent = 'Корзина';
     var body = $('sheetBody');
     body.textContent = '';
+    cartView = null;
     var ls = lines();
     if (!ls.length) {
       body.appendChild(h('div', { class: 'empty' }, icon('cart'), h('p', { text: 'Корзина пустая' }),
         h('button', { type: 'button', class: 'btn-filled ripple', onclick: closeSheet }, 'К товарам')));
       return;
     }
-    ls.forEach(function (l) {
-      body.appendChild(h('div', { class: 'line' },
-        l.p.image ? h('span', { class: 'lead img' }, h('img', { src: imgUrl(l.p.image), alt: '' })) : h('span', { class: 'lead' }, icon(l.p.stars ? 'star' : 'gift')),
-        h('div', { class: 'body' },
-          h('b', { text: title(l.p) }),
-          h('span', { text: money(l.p.price) + (l.q > 1 ? ' × ' + l.q : '') })),
-        stepper(l.p.id, l.q)));
-    });
+    var rows = {};
+    ls.forEach(function (l) { body.appendChild(rows[l.p.id] = cartLine(l)); });
 
     var input = h('input', { id: 'user', type: 'text', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: 'username', maxlength: '40' });
     input.value = state.user;
@@ -326,49 +402,141 @@
     });
     body.appendChild(field('user', 'Telegram-аккаунт получателя', box, hint));
 
+    var seg = h('div', { class: 'seg' });
     function segBtn(code, label, ic) {
       return h('button', { type: 'button', class: 'ripple', 'aria-pressed': String(state.method === code), onclick: function () {
+        if (state.method === code) return;
         state.method = code;
         save();
-        renderCart();
+        Array.prototype.forEach.call(seg.children, function (b) { b.setAttribute('aria-pressed', String(b === this)); }, this);
       } }, icon(ic), label);
     }
-    body.appendChild(h('div', { class: 'field' }, h('label', { text: 'Способ оплаты' }),
-      h('div', { class: 'seg' }, segBtn('AC', 'Картой', 'card'), segBtn('PC', 'ЮMoney', 'wallet'))));
+    seg.appendChild(segBtn('AC', 'Картой', 'card'));
+    seg.appendChild(segBtn('PC', 'ЮMoney', 'wallet'));
+    body.appendChild(h('div', { class: 'field' }, h('label', { text: 'Способ оплаты' }), seg));
 
-    var t = totals();
-    body.appendChild(h('div', { class: 'total' }, h('span', { text: totalLabel(t) }), h('b', { text: money(t.sum) })));
-    body.appendChild(h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () { pay(input, box, hint); } }, icon('lock'), 'Оплатить ' + money(t.sum)));
+    var label = h('span'), sum = h('b');
+    var payText = document.createTextNode('');
+    body.appendChild(h('div', { class: 'total' }, label, sum));
+    body.appendChild(h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () { pay(input, box, hint); } }, icon('lock'), payText));
     body.appendChild(h('p', { class: 'secure' }, icon('lock'), 'Оплата на защищённой странице ЮMoney'));
+    cartView = { rows: rows, label: label, sum: sum, payText: payText };
+    refreshTotal();
+  }
+  function refreshTotal() {
+    var t = totals();
+    cartView.label.textContent = totalLabel(t);
+    cartView.sum.textContent = money(t.sum);
+    cartView.payText.nodeValue = 'Оплатить ' + money(t.sum);
+  }
+  function updateCartLine(id, dir) {
+    var row = cartView && cartView.rows[id];
+    var q = cart[id] || 0;
+    if (!row) { renderCart(); return; }
+    if (q) { row.update(byId(id), q, dir); refreshTotal(); return; }
+    // The last pack of a line went: the line slides away, then the sheet redraws.
+    delete cartView.rows[id];
+    refreshTotal();
+    row.classList.add('gone');
+    setTimeout(function () { if (!$('sheet').hidden && mode === 'cart') renderCart(); }, 220);
   }
 
   var lastFocus = null;
   function openSheet(m) {
     mode = m;
     lastFocus = document.activeElement;
-    $('sheet').classList.toggle('wide-sheet', m === 'admin');
+    var sheet = $('sheet');
+    sheet.classList.toggle('wide-sheet', m === 'admin');
     if (m === 'admin') renderAdmin(); else renderCart();
     $('scrim').hidden = false;
-    $('sheet').hidden = false;
+    sheet.hidden = false;
     $('scrim').classList.remove('leave');
-    $('sheet').classList.remove('leave');
+    sheet.classList.remove('leave', 'settle', 'shown');
+    sheet.style.transform = '';
+    $('scrim').style.opacity = '';
     document.body.classList.add('locked');
     renderBar();
-    var f = $('sheet').querySelector('[data-close]');
-    if (f) f.focus({ preventScroll: true });
   }
+  // Hides the sheet when its exit animation ends, not on a guessed timer that
+  // cut the last frames.
   function closeSheet() {
-    if ($('sheet').hidden) return;
-    $('sheet').classList.add('leave');
+    var sheet = $('sheet');
+    if (sheet.hidden || sheet.classList.contains('leave')) return;
+    sheet.classList.remove('settle');
+    sheet.classList.add('leave');
     $('scrim').classList.add('leave');
-    setTimeout(function () {
-      $('sheet').hidden = true;
+    var done = false;
+    function finish() {
+      if (done) return;
+      done = true;
+      sheet.removeEventListener('animationend', onEnd);
+      if (!sheet.classList.contains('leave')) return; // opened again meanwhile
+      sheet.hidden = true;
       $('scrim').hidden = true;
+      sheet.style.transform = '';
+      $('scrim').style.opacity = '';
+      cartView = null;
       document.body.classList.remove('locked');
       renderBar();
       if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
-    }, 240);
+    }
+    function onEnd(e) { if (e.target === sheet) finish(); }
+    sheet.addEventListener('animationend', onEnd);
+    setTimeout(finish, 450);
   }
+
+  // Material 3 bottom sheet: on phones it can be dragged down by the handle or
+  // the title row. It follows the finger by transform only and closes when
+  // pulled far or flicked; otherwise it springs back.
+  (function dragSheet() {
+    var sheet = $('sheet'), scrim = $('scrim');
+    var id = null, startY = 0, lastY = 0, lastT = 0, speed = 0, dy = 0;
+    var wide = window.matchMedia('(min-width: 720px)');
+    sheet.addEventListener('pointerdown', function (e) {
+      if (wide.matches || e.button > 0 || id !== null || sheet.classList.contains('leave')) return;
+      if ($('sheetBody').contains(e.target) || e.target.closest('button, a, input')) return;
+      id = e.pointerId;
+      startY = lastY = e.clientY;
+      lastT = e.timeStamp;
+      speed = 0;
+      dy = 0;
+      sheet.setPointerCapture(id);
+      sheet.classList.remove('settle');
+      sheet.classList.add('shown', 'dragging');
+      scrim.classList.add('dragging');
+    });
+    sheet.addEventListener('pointermove', function (e) {
+      if (e.pointerId !== id) return;
+      var y = e.clientY - startY;
+      // Upwards it resists: the sheet is already as high as it goes.
+      dy = y > 0 ? y : -Math.sqrt(-y) * 2;
+      if (e.timeStamp > lastT) speed = (e.clientY - lastY) / (e.timeStamp - lastT);
+      lastY = e.clientY;
+      lastT = e.timeStamp;
+      sheet.style.transform = 'translate3d(0,' + dy + 'px,0)';
+      scrim.style.opacity = String(Math.max(0, 1 - Math.max(0, dy) / sheet.offsetHeight));
+    });
+    function end(e) {
+      if (e.pointerId !== id) return;
+      id = null;
+      sheet.classList.remove('dragging');
+      scrim.classList.remove('dragging');
+      if (dy > Math.min(160, sheet.offsetHeight * 0.3) || speed > 0.5) { closeSheet(); return; }
+      sheet.classList.add('settle');
+      sheet.style.transform = '';
+      scrim.style.opacity = '';
+    }
+    sheet.addEventListener('pointerup', end);
+    sheet.addEventListener('pointercancel', end);
+    // Once in, the entrance animation is dropped so it can't replay over a drag,
+    // and focus moves into the sheet: focusing earlier cost a frame of the slide.
+    sheet.addEventListener('animationend', function (e) {
+      if (e.target !== sheet || sheet.classList.contains('leave') || sheet.classList.contains('shown')) return;
+      sheet.classList.add('shown');
+      var f = sheet.querySelector('[data-close]');
+      if (f && !sheet.contains(document.activeElement)) f.focus({ preventScroll: true });
+    });
+  })();
 
   // ---- payment -----------------------------------------------------------------
   // Order emails go through Web3Forms: its access key is public by design and
@@ -799,8 +967,10 @@
       dropped = [];
       saving = false;
       adminMsg = store.kind === 'github' ? 'Сохранено. На сайте обновится примерно через минуту.' : 'Сохранено. Покупатели видят новую витрину.';
+      resetCards();
+      renderCats();
       renderProducts();
-      renderFaq();
+      renderSupport();
       renderBar();
       if (!$('sheet').hidden && mode === 'admin') renderAdmin(); else markDirty();
     }).catch(function (e) {
@@ -890,12 +1060,29 @@
   $('adminBtn').addEventListener('click', function () { adminMsg = ''; openSheet('admin'); });
   $('scrim').addEventListener('click', closeSheet);
   document.querySelector('[data-close]').addEventListener('click', closeSheet);
-  document.querySelector('[data-close-done]').addEventListener('click', function () { $('done').hidden = true; renderProducts(); renderBar(); });
+  function closeDone() {
+    var d = $('done');
+    if (d.hidden || d.classList.contains('leave')) return;
+    d.classList.add('leave');
+    setTimeout(function () { d.hidden = true; d.classList.remove('leave'); }, 210);
+  }
+  document.querySelector('[data-close-done]').addEventListener('click', closeDone);
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (!$('done').hidden) { $('done').hidden = true; return; }
+    if (!$('done').hidden) { closeDone(); return; }
     closeSheet();
   });
+  // iOS applies :active (the pressed shape of buttons) only with a touch listener.
+  document.addEventListener('touchstart', function () { /* enables :active */ }, { passive: true });
+  // An entrance runs once; dropping the class afterwards hands the element back
+  // to its own transform and to the scroll reveal.
+  document.addEventListener('animationend', function (e) {
+    if (e.animationName === 'rise' && e.target.classList.contains('enter')) e.target.classList.remove('enter');
+  });
+  // Material 3 top app bar: a surface appears once the page is scrolled.
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(function (es) { document.querySelector('.topbar').classList.toggle('scrolled', !es[0].isIntersecting); }).observe($('topSentinel'));
+  } else document.querySelector('.topbar').classList.add('scrolled');
 
   var loaded = false;
   var sortSel = $('sort');
@@ -919,9 +1106,10 @@
       save();
       checkReturn();
       animate = true;
+      resetCards();
       renderCats();
       renderProducts();
-      renderFaq();
+      renderSupport();
       renderBar();
     });
   setupOwner();
