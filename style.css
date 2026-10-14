@@ -877,3 +877,26 @@ body.has-bar .snackbar { bottom: calc(84px + env(safe-area-inset-bottom)); }
 .login-text { margin: 4px 0 0; color: var(--text-2); font-size: 15px; line-height: 22px; }
 .link-inline { color: var(--red); text-decoration: underline; text-underline-offset: 2px; }
 .text-btn.logout { margin: 16px 0 0 -8px; color: var(--text-2); }
+
+/* ---- legal pages: offer.html, privacy.html ---------------------------------- */
+.doc { max-width: 760px; }
+.doc-title { margin: 12px 0 4px; font-size: 28px; line-height: 36px; }
+@media (min-width: 640px) { .doc-title { font-size: 36px; line-height: 44px; } }
+.doc-date { margin: 0 0 20px; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; color: var(--text-2); }
+.doc section { margin: 0 0 12px; padding: 16px 18px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); }
+.doc h2 { margin: 0 0 10px; font-size: 16px; line-height: 24px; font-weight: 500; color: #fff; }
+.doc p, .doc li { margin: 0 0 8px; font-size: 14px; line-height: 22px; color: var(--text-2); }
+.doc p:last-child, .doc li:last-child { margin-bottom: 0; }
+.doc ul { margin: 0 0 8px; padding-left: 20px; }
+.doc b { color: var(--text); font-weight: 500; }
+.doc a:not(.text-btn) { color: var(--red); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(255, 45, 72, 0.4); }
+.doc mark { padding: 0 4px; border-radius: 4px; background: rgba(255, 207, 90, 0.18); color: var(--gold); }
+.doc-req { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 8px; }
+.doc-req dt { color: var(--text-2); }
+.doc-req dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+
+/* Links to the offer and the policy: in the footer and under the pay button. */
+.foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; }
+.foot .foot-links a { text-transform: none; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; text-decoration-color: rgba(185, 153, 156, 0.4); }
+.agree { margin: 10px 0 0; text-align: center; font-size: 12px; line-height: 16px; color: var(--text-2); }
+.agree a { color: var(--on-container); text-decoration: underline; text-underline-offset: 2px; }

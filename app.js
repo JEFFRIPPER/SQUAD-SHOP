@@ -557,6 +557,9 @@
     body.appendChild(h('div', { class: 'total' }, label, sum));
     body.appendChild(h('button', { type: 'button', class: 'btn-filled wide ripple', onclick: function () { pay(input, box, hint); } }, icon('lock'), payText));
     body.appendChild(h('p', { class: 'secure' }, icon('lock'), 'Оплата на защищённой странице ЮMoney'));
+    body.appendChild(h('p', { class: 'agree' }, 'Нажимая «Оплатить», ты принимаешь ',
+      h('a', { href: 'offer.html', target: '_blank', text: 'оферту' }), ' и ',
+      h('a', { href: 'privacy.html', target: '_blank', text: 'политику обработки данных' }), '.'));
     cartView = { rows: rows, label: label, sum: sum, payText: payText };
     refreshTotal();
   }

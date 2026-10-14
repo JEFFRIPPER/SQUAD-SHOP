@@ -5,7 +5,7 @@
 // - Files with ?v= in the URL and fonts never change: the cache answers.
 // - Other files (photos) answer from the cache and refresh in the background.
 // Other sites (ЮMoney, GitHub, Web3Forms) are never touched.
-var VERSION = '1';
+var VERSION = '2';
 var PAGES = 'squad-pages-' + VERSION;
 var FILES = 'squad-files-' + VERSION;
 
@@ -75,7 +75,8 @@ self.addEventListener('fetch', function (event) {
   var url = new URL(req.url);
   var scope = new URL(self.registration.scope);
   if (url.origin !== scope.origin || url.pathname.indexOf(scope.pathname) !== 0) return;
-  if (req.mode === 'navigate') { event.respondWith(networkFirst(event, scope.href)); return; }
+  // Each page has its own copy; ?paid=… and other queries share the page's.
+  if (req.mode === 'navigate') { event.respondWith(networkFirst(event, url.origin + url.pathname)); return; }
   if (url.pathname === scope.pathname + 'shop.json') { event.respondWith(networkFirst(event, scope.href + 'shop.json')); return; }
   if (url.pathname === scope.pathname + 'sw.js') return;
   if (/[?&]v=/.test(url.search) || url.pathname.indexOf('/fonts/') >= 0) { event.respondWith(cacheFirst(event, url)); return; }
