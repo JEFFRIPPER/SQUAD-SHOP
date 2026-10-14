@@ -257,6 +257,8 @@ button { -webkit-user-select: none; user-select: none; cursor: pointer; }
   transition: opacity var(--dur-medium) var(--ease-standard);
 }
 .topbar.scrolled::before { opacity: 1; }
+/* Category chips stuck right below: one surface, the divider moves under them. */
+.topbar.joined::before { border-bottom-color: transparent; box-shadow: none; }
 #topSentinel { position: absolute; top: 0; left: 0; width: 1px; height: 8px; pointer-events: none; }
 .topbar-inner { max-width: 1080px; margin: 0 auto; height: 64px; padding: 0 12px 0 16px; display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 12px; }
@@ -290,7 +292,7 @@ main { max-width: 1080px; margin: 0 auto; padding: 16px 16px calc(112px + env(sa
   height: 180px;
   background:
     linear-gradient(180deg, rgba(20, 5, 7, 0) 45%, rgba(20, 5, 7, 0.75) 76%, var(--surface-solid) 92%),
-    url("img/squad-cover.jpg") 50% 46% / cover no-repeat;
+    url("img/squad-cover.webp") 50% 46% / cover no-repeat;
   animation: kenburns 24s ease-in-out infinite alternate;
   transform-origin: 50% 45%;
 }
@@ -363,7 +365,24 @@ h1 > span, h1 > em { display: inline-block; transform: skewX(-8deg); }
 .sort select { appearance: none; -webkit-appearance: none; border: 0; outline: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; padding-right: 2px; }
 .sort select option { background: var(--surface-solid); color: var(--text); }
 .sort:focus-within { border-color: var(--red); box-shadow: 0 0 12px var(--glow-soft); }
-.cats { display: flex; gap: 8px; margin: 0 -16px 12px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; contain: content; }
+/* The chips stick under the app bar while the catalog scrolls. Stuck, a solid
+   surface fades in behind them; it reaches the screen edges through a spread
+   shadow clipped to the bar's height, which adds no page overflow. */
+.cats-bar { position: sticky; top: calc(64px + env(safe-area-inset-top, 0px)); z-index: 15; isolation: isolate; margin: -6px -16px 6px; padding: 6px 0; }
+.cats-bar::before, .cats-bar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  clip-path: inset(0 -100vmax);
+  opacity: 0;
+  transition: opacity var(--dur-medium) var(--ease-standard);
+}
+.cats-bar::before { top: 0; bottom: 0; background: #0a0304; box-shadow: 0 0 0 100vmax #0a0304; }
+.cats-bar::after { bottom: -1px; height: 1px; background: var(--line); box-shadow: 0 0 0 100vmax var(--line); }
+.cats-bar.stuck::before, .cats-bar.stuck::after { opacity: 1; }
+.cats { display: flex; gap: 8px; padding: 2px 16px; overflow-x: auto; scrollbar-width: none; contain: content; }
 .cats::-webkit-scrollbar { display: none; }
 .cat {
   display: inline-flex;
@@ -441,10 +460,32 @@ h1 > span, h1 > em { display: inline-block; transform: skewX(-8deg); }
 @keyframes twinkle { 0%, 100% { transform: scale(1) rotate(0); opacity: 1; } 50% { transform: scale(0.86) rotate(-8deg); opacity: 0.8; } }
 .amount { font-size: 32px; line-height: 40px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .amount small { margin-left: 6px; font-size: 14px; font-weight: 500; color: var(--text-2); letter-spacing: 0.25px; }
-.price { font-size: 20px; line-height: 28px; font-weight: 500; color: var(--red); text-shadow: 0 0 14px var(--glow-soft); }
+.price { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 20px; line-height: 28px; font-weight: 500; color: var(--red); text-shadow: 0 0 14px var(--glow-soft); }
+/* How much a bigger pack saves per star (or per month) against the dearest one. */
+.save { height: 20px; padding: 0 7px; border-radius: 10px; background: rgba(255, 207, 90, 0.16); color: var(--gold); font-size: 12px; line-height: 20px; font-weight: 700; letter-spacing: 0.3px; text-shadow: none; font-variant-numeric: tabular-nums; }
 .per { font-size: 12px; line-height: 16px; letter-spacing: 0.4px; color: var(--text-2); }
+.per.unit { color: var(--on-container); font-variant-numeric: tabular-nums; }
+.per.bad { color: #ff7a8a; }
 .product .act { margin-top: auto; padding-top: 12px; } /* buttons line up across a row */
 .product .btn-tonal { width: 100%; }
+.btn-tonal:disabled { opacity: 0.38; cursor: default; }
+
+/* «Своё количество»: two columns wide, stars on the left, the form on the right. */
+.product.custom { grid-column: span 2; flex-direction: row; gap: 14px; }
+.product.custom .stars { flex: none; width: 92px; height: auto; margin: 0; }
+.product.custom .stars .icon:nth-child(1) { top: 18px; }
+.product.custom .stars .icon:nth-child(2) { top: 6px; }
+.product.custom .stars .icon:nth-child(3) { top: 52px; }
+.product.custom .stars .icon:nth-child(4) { top: 30px; }
+.custom-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.custom-body .pname { display: block; }
+.custom-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 8px; }
+.custom-row .input { flex: 1 1 120px; min-width: 0; max-width: 200px; height: 44px; padding: 0 12px; border-radius: 12px; }
+.custom-row .input input { font-weight: 700; font-variant-numeric: tabular-nums; }
+.custom-row .input .suffix { font-size: 14px; }
+.custom-row .price { flex: none; }
+.quick { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.quick .cat { height: 28px; padding: 0 10px; font-variant-numeric: tabular-nums; }
 .stepper { display: flex; align-items: center; justify-content: space-between; height: 40px; border-radius: 20px; background: linear-gradient(180deg, var(--red), var(--red-deep)); color: #fff; box-shadow: 0 0 18px var(--glow-soft); }
 .stepper button { width: 44px; height: 40px; border: 0; border-radius: 20px; background: transparent; display: grid; place-items: center; }
 .stepper button:disabled { opacity: 0.38; }
@@ -696,6 +737,29 @@ h1 > span, h1 > em { display: inline-block; transform: skewX(-8deg); }
 .dialog h2 { margin: 0 0 8px; font-size: 22px; line-height: 28px; font-weight: 500; }
 .dialog p { margin: 0 0 20px; color: var(--text-2); }
 .dialog p b { color: var(--text); }
+.dialog #doneText { margin-bottom: 16px; }
+/* The order number is the one thing to keep: big, and a tap copies it. */
+.order-id {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  width: 100%;
+  padding: 12px 12px 12px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 16px;
+  background: rgba(255, 30, 60, 0.1);
+  text-align: left;
+  transition: border-radius var(--dur-spring-fast) var(--spring-bouncy);
+}
+.order-id:active { border-radius: 10px; }
+.order-label { grid-column: 1; font-size: 12px; line-height: 16px; letter-spacing: 0.4px; color: var(--text-2); }
+.order-id b { grid-column: 1; font-size: 24px; line-height: 32px; font-weight: 700; letter-spacing: 1.5px; color: #fff; font-variant-numeric: tabular-nums; text-shadow: 0 0 16px var(--glow-soft); }
+.order-id .icon { grid-column: 2; grid-row: 1 / span 2; width: 22px; height: 22px; fill: var(--red); }
+.dialog .order-note { margin: 8px 4px 20px; font-size: 12px; line-height: 16px; }
+.dialog-acts { display: flex; flex-direction: column; gap: 8px; }
+.dialog-acts > * { width: 100%; }
 
 /* ---- snackbar -------------------------------------------------------------- */
 .snackbar {

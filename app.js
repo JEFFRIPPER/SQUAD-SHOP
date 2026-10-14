@@ -4,7 +4,7 @@
   // Products and settings live in shop.json next to this page. The owner
   // edits them in the "Товары" panel; on claude.ai the page saves them back
   // through the artifact capability. Elsewhere the panel stays hidden.
-  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '' }, products: [] };
+  var DEFAULT_SHOP = { settings: { receiver: '', support: '', notify: '', custom: 0 }, products: [] };
 
   var FAQ = [
     ['Это безопасно?', 'Мы не просим пароль, код из SMS и вход в аккаунт. Нужен только @username, на который придёт заказ. Карта вводится на странице ЮMoney, сайт её не видит.'],
@@ -34,7 +34,9 @@
     back: 'M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z',
     photo: 'M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z',
     check: 'M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z',
-    save: 'M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z'
+    save: 'M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z',
+    copy: 'M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z',
+    send: 'M2.01 21L23 12 2.01 3 2 10l15 2-15 2z'
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -97,6 +99,7 @@
     out.settings.receiver = String(s.receiver || '').replace(/\D/g, '');
     out.settings.support = cleanUser(s.support);
     out.settings.notify = cleanKey(s.notify);
+    out.settings.custom = cleanRate(s.custom);
     (Array.isArray(data.products) ? data.products : []).forEach(function (p) {
       if (!p || !p.id) return;
       out.products.push({
@@ -136,7 +139,55 @@
       .sort(function (a, b) { return (a.p.price - b.p.price) * k || a.i - b.i; })
       .map(function (x) { return x.p; });
   }
-  function byId(id) { for (var i = 0; i < shop.products.length; i++) if (shop.products[i].id === id) return shop.products[i]; return null; }
+  function byId(id) {
+    for (var i = 0; i < shop.products.length; i++) if (shop.products[i].id === id) return shop.products[i];
+    var n = customAmount(id);
+    return n ? customProduct(n) : null;
+  }
+
+  // What a pack is measured in: stars, or months for a subscription named like
+  // «Telegram Premium · 6 месяцев». Packs of one kind compare by unit price,
+  // and the dearest unit among them is the base a bigger pack saves against.
+  var MONTHS = /(\d+)\s*(мес|month)/i;
+  function unit(p) {
+    if (p.stars) return { kind: 'star', n: p.stars };
+    var m = MONTHS.exec(p.name);
+    return m && +m[1] ? { kind: 'month', n: +m[1] } : null;
+  }
+  function unitText(u, price) {
+    var v = price / u.n;
+    return u.kind === 'star' ? v.toFixed(2).replace('.', ',') + ' ₽ за звезду' : rub.format(Math.round(v)) + ' ₽ в месяц';
+  }
+  var base = {};
+  function findBase() {
+    base = {};
+    visible().forEach(function (p) {
+      var u = unit(p);
+      if (u) base[u.kind] = Math.max(base[u.kind] || 0, p.price / u.n);
+    });
+  }
+  function discount(p) {
+    var u = unit(p);
+    return u && base[u.kind] ? Math.floor((1 - p.price / u.n / base[u.kind]) * 100 + 1e-9) : 0;
+  }
+
+  // «Своё количество»: any number of stars at the owner's price per star
+  // (settings.custom, 0 turns it off). In the cart it is a line «custom-1234»;
+  // site and Finya ids never contain a dash, so the two can't clash.
+  var CUSTOM = 'custom-', CUSTOM_MIN = 50, CUSTOM_MAX = 10000;
+  function cleanRate(v) {
+    var r = Math.round(parseFloat(String(v == null ? '' : v).replace(',', '.')) * 100) / 100;
+    return r > 0 && r < 1000 ? r : 0;
+  }
+  function customPrice(n) { return Math.ceil(n * shop.settings.custom); }
+  function customAmount(id) {
+    var m = /^custom-(\d+)$/.exec(id);
+    var n = m ? +m[1] : 0;
+    return shop.settings.custom && n >= CUSTOM_MIN && n <= CUSTOM_MAX ? n : 0;
+  }
+  function customProduct(n) {
+    return { id: CUSTOM + n, name: '', stars: n, price: customPrice(n), desc: '', tag: '', cat: '', gold: false, image: '', hidden: false, custom: true };
+  }
 
   // ---- cart state (kept in this browser only) -------------------------------
   var KEY = 'squadshop.cart';
@@ -155,7 +206,12 @@
     try { localStorage.setItem(KEY, JSON.stringify({ cart: cart, user: state.user, method: state.method, cat: state.cat, sort: state.sort })); } catch (e) { /* ignore */ }
   }
   function lines() {
-    return visible().filter(function (p) { return cart[p.id] > 0; }).map(function (p) { return { p: p, q: cart[p.id] }; });
+    var out = visible().filter(function (p) { return cart[p.id] > 0; }).map(function (p) { return { p: p, q: cart[p.id] }; });
+    Object.keys(cart).forEach(function (id) {
+      var n = customAmount(id);
+      if (n && cart[id] > 0) out.push({ p: customProduct(n), q: cart[id] });
+    });
+    return out;
   }
   function totals() {
     var sum = 0, count = 0, stars = 0, other = 0;
@@ -182,6 +238,8 @@
     if (q) cart[id] = q; else delete cart[id];
     save();
     var dir = q > prev ? 'up' : 'down';
+    // A short tick under the finger on Android; iPhones have no vibration API.
+    if (dir === 'up' && navigator.vibrate) try { navigator.vibrate(12); } catch (e) { /* not allowed here */ }
     if (cards[id]) fillAct(cards[id], byId(id), dir);
     renderBar(true);
     if (!$('sheet').hidden && mode === 'cart') updateCartLine(id, dir);
@@ -232,21 +290,25 @@
   // Cards are built once per version of the shop and reused: a filter or sort
   // only reorders them, so photos are not decoded again.
   var cards = {};
+  var customCard = null;
   function resetCards() {
     if (liveObs) liveObs.disconnect();
     cards = {};
+    customCard = null;
+    findBase();
   }
   function buildCard(p) {
     var head = p.stars
       ? h('div', { class: 'amount' }, rub.format(p.stars), h('small', { text: starsWord(p.stars) }))
       : h('div', { class: 'pname', text: nb(p.name) });
-    var note = p.desc || (p.stars ? (p.price / p.stars).toFixed(2).replace('.', ',') + ' ₽ за звезду' : '');
+    var u = unit(p), off = discount(p);
     var el = h('article', { class: 'product press' + (p.tag ? ' hot' : ''), 'data-id': p.id },
       p.tag ? h('span', { class: 'tag' + (p.gold ? ' gold' : ''), text: p.tag }) : null,
       media(p),
       head,
-      h('div', { class: 'price', text: money(p.price) }),
-      note ? h('div', { class: 'per', text: nb(note) }) : null,
+      h('div', { class: 'price' }, money(p.price), off > 0 ? h('span', { class: 'save', title: 'Выгоднее на ' + off + '%', text: '−' + off + '%' }) : null),
+      u ? h('div', { class: 'per unit', text: nb(unitText(u, p.price)) }) : null,
+      p.desc ? h('div', { class: 'per', text: nb(p.desc) }) : null,
       h('div', { class: 'act' }));
     fillAct(el, p);
     if (liveObs) liveObs.observe(el); else el.classList.add('live');
@@ -270,6 +332,73 @@
       h('span', { class: 'skel media' }), h('span', { class: 'skel l1' }), h('span', { class: 'skel l2' }), h('span', { class: 'skel l3' }), h('span', { class: 'skel btn' }));
   }
 
+  // The «Своё количество» card: type a number, see the price, add to the cart.
+  // It is wide (two columns) and has no press effect: it holds a text field.
+  function buildCustom() {
+    var input = h('input', { id: 'customStars', type: 'text', inputmode: 'numeric', autocomplete: 'off', maxlength: '5', 'aria-describedby': 'customHint' });
+    input.value = '1000';
+    var word = h('span', { class: 'suffix' });
+    var price = h('div', { class: 'price' });
+    var hint = h('div', { class: 'per', id: 'customHint' });
+    var add = h('button', { type: 'button', class: 'btn-tonal ripple', onclick: put }, icon('add'), 'В корзину');
+    function amount() { return parseInt(input.value.replace(/\D/g, ''), 10) || 0; }
+    function sync() {
+      var n = amount();
+      var ok = n >= CUSTOM_MIN && n <= CUSTOM_MAX;
+      word.textContent = starsWord(n);
+      price.textContent = ok ? money(customPrice(n)) : '—';
+      var range = 'от ' + rub.format(CUSTOM_MIN) + ' до ' + rub.format(CUSTOM_MAX);
+      hint.textContent = nb(ok ? unitText({ kind: 'star', n: n }, customPrice(n)) + ' · ' + range : 'Можно ' + range + ' звёзд');
+      hint.classList.toggle('bad', !ok && !!input.value);
+      add.disabled = !ok;
+    }
+    function put() {
+      var n = amount();
+      if (n < CUSTOM_MIN || n > CUSTOM_MAX) return;
+      var id = CUSTOM + n;
+      if ((cart[id] || 0) >= MAX_QTY) { toast('Больше ' + MAX_QTY + ' одинаковых нельзя'); return; }
+      setQty(id, (cart[id] || 0) + 1);
+      toast(title(customProduct(n)) + ': в корзине');
+    }
+    input.addEventListener('input', function () {
+      var v = input.value.replace(/\D/g, '');
+      if (v !== input.value) input.value = v;
+      sync();
+    });
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') put(); });
+    sync();
+    // Quick picks for round amounts.
+    var quick = h('div', { class: 'quick' });
+    [1000, 2500, 5000].forEach(function (n) {
+      quick.appendChild(h('button', { type: 'button', class: 'cat ripple', onclick: function () {
+        input.value = String(n);
+        sync();
+        play(price, POP);
+      } }, rub.format(n)));
+    });
+    var el = h('article', { class: 'product custom', 'data-id': 'custom' },
+      h('div', { class: 'stars', 'aria-hidden': 'true' }, icon('star'), icon('star'), icon('star'), icon('star')),
+      h('div', { class: 'custom-body' },
+        h('label', { class: 'pname', for: 'customStars', text: 'Своё количество' }),
+        hint,
+        h('div', { class: 'custom-row' }, h('div', { class: 'input' }, input, word), price),
+        quick,
+        h('div', { class: 'act' }, add)));
+    if (liveObs) liveObs.observe(el); else el.classList.add('live');
+    return el;
+  }
+  // The card stands right after the star packs, in their category.
+  function withCustom(list, nodes) {
+    if (!shop.settings.custom) return nodes;
+    var first = visible().filter(function (p) { return p.stars; })[0];
+    var cat = first ? first.cat : '';
+    if (state.cat != null && state.cat !== cat) return nodes;
+    var at = 0;
+    list.forEach(function (p, i) { if (p.stars) at = i + 1; });
+    nodes.splice(at || nodes.length, 0, customCard || (customCard = buildCustom()));
+    return nodes;
+  }
+
   var animate = true;
   function renderProducts() {
     var root = $('products');
@@ -277,13 +406,14 @@
     var nodes;
     if (!loaded) nodes = [skeleton(), skeleton(), skeleton(), skeleton()];
     else if (!list.length) nodes = [h('p', { class: 'grid-empty', text: visible().length ? 'В этой категории пока пусто.' : 'Товаров пока нет. Загляни позже.' })];
-    else nodes = list.map(function (p, i) {
-      var el = cards[p.id] || (cards[p.id] = buildCard(p));
-      el.style.setProperty('--i', i);
-      // Re-inserted nodes restart their animation, so a filter replays the entrance.
-      if (animate) el.classList.add('enter');
-      return el;
-    });
+    else {
+      nodes = withCustom(list, list.map(function (p) { return cards[p.id] || (cards[p.id] = buildCard(p)); }));
+      nodes.forEach(function (el, i) {
+        el.style.setProperty('--i', i);
+        // Re-inserted nodes restart their animation, so a filter replays the entrance.
+        if (animate) el.classList.add('enter');
+      });
+    }
     root.replaceChildren.apply(root, nodes);
     root.setAttribute('aria-busy', String(!loaded));
     if (loaded) animate = false;
@@ -296,8 +426,8 @@
     var list = categories();
     if (state.cat != null && list.indexOf(state.cat) < 0) state.cat = null;
     root.textContent = '';
-    root.hidden = list.length < 2;
-    if (root.hidden) return;
+    $('catsBar').hidden = list.length < 2;
+    if (list.length < 2) return;
     function chip(value, label) {
       return h('button', { type: 'button', class: 'cat ripple', 'aria-pressed': String(state.cat === value), onclick: function () {
         if (state.cat === value) return;
@@ -306,6 +436,13 @@
         Array.prototype.forEach.call(root.children, function (b, i) { b.setAttribute('aria-pressed', String((i ? list[i - 1] : null) === value)); });
         animate = true;
         renderProducts();
+        // With the chips stuck under the app bar the list starts over from its top.
+        // A shorter list may already have carried the chips off, so the offset
+        // is where they stick, not where they are now.
+        if (catsStuck) {
+          var y = $('products').getBoundingClientRect().top + window.scrollY - stickTop - $('catsBar').offsetHeight - 8;
+          window.scrollTo({ top: Math.max(0, y), behavior: still ? 'auto' : 'smooth' });
+        }
       } }, icon('check'), label);
     }
     root.appendChild(chip(null, 'Все'));
@@ -611,15 +748,24 @@
     try { last = JSON.parse(localStorage.getItem('squadshop.last') || 'null'); } catch (e) { /* ignore */ }
     var text = $('doneText');
     text.textContent = '';
-    text.appendChild(document.createTextNode('Заказ '));
-    text.appendChild(h('b', { text: id }));
     if (last && last.id === id) {
-      text.appendChild(document.createTextNode(': ' + last.what + ' для '));
+      text.appendChild(document.createTextNode(last.what + ' для '));
       text.appendChild(h('b', { text: '@' + last.user }));
+      text.appendChild(document.createTextNode('. '));
       cart = {};
       save();
     }
-    text.appendChild(document.createTextNode('. Выдадим после проверки оплаты. Сохрани номер заказа.'));
+    text.appendChild(document.createTextNode('Выдадим после проверки оплаты.'));
+    $('doneId').textContent = id;
+    var sup = $('doneSupport');
+    sup.hidden = !shop.settings.support;
+    if (shop.settings.support) {
+      // Telegram fills the message box from ?text=; the number is also copied
+      // on tap in case the chat ignores it.
+      var link = 'https://t.me/' + shop.settings.support;
+      sup.href = link + (link.indexOf('?') < 0 ? '?' : '&') + 'text=' + encodeURIComponent('Заказ ' + id + ': ');
+      sup.onclick = function () { copy(id); };
+    }
     var seen = false;
     try { seen = localStorage.getItem('squadshop.back') === id; localStorage.setItem('squadshop.back', id); } catch (e) { /* ignore */ }
     if (!seen) {
@@ -629,6 +775,32 @@
     $('done').hidden = false;
     history.replaceState(null, '', location.pathname + location.hash);
   }
+
+  function copy(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var t = h('textarea', { readonly: true, class: 'visually-hidden' });
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { /* unsupported */ }
+      t.remove();
+      if (ok) resolve(); else reject(new Error('copy'));
+    });
+  }
+  var copyTimer;
+  $('doneCopy').addEventListener('click', function () {
+    var btn = this;
+    copy($('doneId').textContent).then(function () {
+      toast('Номер заказа скопирован');
+      var path = btn.querySelector('path');
+      path.setAttribute('d', PATHS.check);
+      play(btn.querySelector('svg'), [{ transform: 'scale(0.5)', opacity: 0 }, { transform: 'none', opacity: 1 }]);
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(function () { path.setAttribute('d', PATHS.copy); }, 1800);
+    }, function () { toast('Не получилось скопировать: выдели номер пальцем'); });
+  });
 
   // ---- owner panel -------------------------------------------------------------
   // Two places can save the shop: claude.ai (artifact capability) and GitHub
@@ -805,6 +977,17 @@
     });
     body.appendChild(field('setSupport', 'Поддержка в Telegram', h('div', { class: 'input' }, h('span', { text: '@' }), sup),
       h('p', { class: 'hint', text: 'Появится кнопкой под вопросами. Для лички канала: канал?direct' })));
+    var rate = h('input', { id: 'setCustom', type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '1,6', maxlength: '7' });
+    rate.value = draft.settings.custom ? String(draft.settings.custom).replace('.', ',') : '';
+    var rateBox = h('div', { class: 'input' }, rate, h('span', { text: '₽' }));
+    rate.addEventListener('input', function () {
+      draft.settings.custom = cleanRate(rate.value);
+      rateBox.classList.toggle('bad', !!rate.value.trim() && !draft.settings.custom);
+      markDirty();
+      refreshSave();
+    });
+    body.appendChild(field('setCustom', 'Своё количество звёзд: цена одной звезды', rateBox,
+      h('p', { class: 'hint', text: 'Покупатель впишет от ' + rub.format(CUSTOM_MIN) + ' до ' + rub.format(CUSTOM_MAX) + ' звёзд, цена округлится вверх до рубля. Пусто — карточки нет' })));
     body.appendChild(field('setNotify', 'Письма о заказах (ключ Web3Forms)', keyBox,
       h('p', { class: 'hint' }, 'Введи свою почту на ', h('a', { href: 'https://web3forms.com/#start', target: '_blank', rel: 'noopener', class: 'link-inline', text: 'web3forms.com' }),
         ', ключ придёт письмом. Вставь его сюда и сохрани. Пусто — писем нет')));
@@ -1083,6 +1266,19 @@
   if ('IntersectionObserver' in window) {
     new IntersectionObserver(function (es) { document.querySelector('.topbar').classList.toggle('scrolled', !es[0].isIntersecting); }).observe($('topSentinel'));
   } else document.querySelector('.topbar').classList.add('scrolled');
+  // Category chips stick under the app bar while the catalog scrolls; stuck,
+  // they get the bar's surface and the bar drops its own divider.
+  var catsStuck = false;
+  if ('IntersectionObserver' in window) {
+    var catsBar = $('catsBar');
+    var stickTop = parseFloat(getComputedStyle(catsBar).top) || 64;
+    new IntersectionObserver(function (es) {
+      var e = es[es.length - 1];
+      catsStuck = e.isIntersecting && e.intersectionRatio < 1 && e.boundingClientRect.top <= stickTop + 1;
+      catsBar.classList.toggle('stuck', catsStuck);
+      document.querySelector('.topbar').classList.toggle('joined', catsStuck);
+    }, { rootMargin: '-' + (stickTop + 1) + 'px 0px 0px 0px', threshold: [0, 1] }).observe(catsBar);
+  }
 
   var loaded = false;
   var sortSel = $('sort');
@@ -1113,4 +1309,10 @@
       renderBar();
     });
   setupOwner();
+
+  // Offline copy and instant repeat visits (sw.js). Not inside claude.ai,
+  // where the page runs in a sandbox.
+  if ('serviceWorker' in navigator && !window.claude && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* the site works without it */ });
+  }
 })();

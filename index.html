@@ -6,11 +6,27 @@
   <meta name="theme-color" content="#070203">
   <meta name="description" content="SQUAD SHOP: звёзды и Telegram Premium за рубли. Оплата картой или ЮMoney.">
   <title>SQUAD SHOP</title>
+  <!-- Link preview in Telegram and other apps -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="SQUAD SHOP">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:url" content="https://jeffripper.github.io/SQUAD-SHOP/">
+  <meta property="og:title" content="SQUAD SHOP: звёзды Telegram за рубли">
+  <meta property="og:description" content="Звёзды и Telegram Premium на твой аккаунт или другу в подарок. Нужен только @username, оплата картой или ЮMoney.">
+  <meta property="og:image" content="https://jeffripper.github.io/SQUAD-SHOP/img/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="SQUAD SHOP: звёзды Telegram за рубли">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://jeffripper.github.io/SQUAD-SHOP/">
+  <link rel="manifest" href="manifest.json">
   <link rel="icon" href="img/squad-logo.jpg">
-  <link rel="preload" href="img/squad-cover.jpg" as="image" fetchpriority="high">
+  <link rel="apple-touch-icon" href="img/icon-180.png">
+  <meta name="apple-mobile-web-app-title" content="SQUAD SHOP">
+  <link rel="preload" href="img/squad-cover.webp" as="image" fetchpriority="high">
   <link rel="preload" href="fonts/squad-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="fonts/squad-cyrillic.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
 </head>
 <body>
   <div id="topSentinel" aria-hidden="true"></div>
@@ -19,7 +35,7 @@
   <header class="topbar">
     <div class="topbar-inner">
       <a class="brand" href="#top" aria-label="SQUAD SHOP, наверх">
-        <span class="logo-ring"><img class="logo" src="img/squad-logo.jpg" alt=""></span>
+        <span class="logo-ring"><img class="logo" src="img/squad-logo.webp" alt="" width="40" height="40"></span>
         <b>SQUAD <em>SHOP</em></b>
       </a>
       <div class="top-actions">
@@ -66,7 +82,7 @@
           </select>
         </label>
       </div>
-      <div class="cats" id="cats" role="group" aria-label="Категории" hidden></div>
+      <div class="cats-bar" id="catsBar" hidden><div class="cats" id="cats" role="group" aria-label="Категории"></div></div>
       <div class="grid" id="products"></div>
     </section>
 
@@ -85,7 +101,7 @@
     </section>
 
     <footer class="foot reveal">
-      <span class="logo-ring small"><img class="logo" src="img/squad-logo.jpg" alt=""></span>
+      <span class="logo-ring small"><img class="logo" src="img/squad-logo.webp" alt="" loading="lazy" decoding="async"></span>
       <p>T.N.K.C SQUAD · Свобода начинается с нас</p>
       <p class="fine">Оплата проходит на&nbsp;стороне ЮMoney, данные карты сайт не&nbsp;видит и&nbsp;не&nbsp;хранит.</p>
     </footer>
@@ -113,16 +129,29 @@
   </section>
 
   <div class="dialog-wrap" id="done" hidden>
-    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="doneTitle">
+    <div class="dialog" role="alertdialog" aria-modal="true" aria-labelledby="doneTitle" aria-describedby="doneText">
       <div class="done-mark"><svg class="icon" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
       <h2 id="doneTitle">Оплата отправлена</h2>
       <p id="doneText"></p>
-      <button class="btn-filled ripple" type="button" data-close-done>Понятно</button>
+      <button class="order-id ripple" type="button" id="doneCopy">
+        <span class="order-label">Номер заказа</span>
+        <b id="doneId"></b>
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+        <span class="visually-hidden">: скопировать</span>
+      </button>
+      <p class="order-note">Сохрани номер: по нему поддержка найдёт заказ.</p>
+      <div class="dialog-acts">
+        <a class="btn-tonal ripple" id="doneSupport" target="_blank" rel="noopener" hidden>
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          Написать в поддержку
+        </a>
+        <button class="btn-filled ripple" type="button" data-close-done>Понятно</button>
+      </div>
     </div>
   </div>
 
   <div class="snackbar" id="snackbar" role="status" aria-live="polite"></div>
 
-  <script src="app.js?v=14"></script>
+  <script src="app.js?v=15"></script>
 </body>
 </html>
